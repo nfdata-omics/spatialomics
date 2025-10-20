@@ -24,10 +24,9 @@ include { getGenomeAttribute      } from './subworkflows/local/utils_nfcore_spat
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-// TODO nf-core: Remove this line if you don't need a FASTA file
-//   This is an example of how to use getGenomeAttribute() to fetch parameters
-//   from igenomes.config using `--genome`
-params.fasta = getGenomeAttribute('fasta')
+params.fasta             = getGenomeAttribute('fasta')
+params.gft               = getGenomeAttribute('gtf')
+params.spaceranger_index = getGenomeAttribute('spaceranger_index')
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -45,11 +44,21 @@ workflow NFDATAOMICS_SPATIALOMICS {
 
     main:
 
+    // Define channels for reference files
+    ch_fasta              = params.fasta             ? Channel.value(file(params.fasta, checkIfExists: true))             : Channel.empty()
+    ch_gtf                = params.gtf               ? Channel.value(file(params.gtf, checkIfExists: true))               : Channel.empty()
+    ch_gff                = params.gff               ? Channel.value(file(params.gff, checkIfExists: true))               : Channel.empty()
+    ch_spaceranger_index  = params.spaceranger_index ? Channel.value(file(params.spaceranger_index, checkIfExists: true)) : Channel.empty()
+
     //
     // WORKFLOW: Run pipeline
     //
     SPATIALOMICS (
-        samplesheet
+        samplesheet,
+        ch_fasta,
+        ch_gtf,
+        ch_gff,
+        ch_spaceranger_index
     )
     emit:
     multiqc_report = SPATIALOMICS.out.multiqc_report // channel: /path/to/multiqc_report.html
@@ -84,6 +93,7 @@ workflow {
     NFDATAOMICS_SPATIALOMICS (
         PIPELINE_INITIALISATION.out.samplesheet
     )
+
     //
     // SUBWORKFLOW: Run completion tasks
     //

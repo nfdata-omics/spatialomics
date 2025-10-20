@@ -9,6 +9,8 @@ include { paramsSummaryMap       } from 'plugin/nf-schema'
 include { paramsSummaryMultiqc   } from '../subworkflows/nf-core/utils_nfcore_pipeline'
 include { softwareVersionsToYAML } from '../subworkflows/nf-core/utils_nfcore_pipeline'
 include { methodsDescriptionText } from '../subworkflows/local/utils_nfcore_spatialomics_pipeline'
+include { PREPARE_REF            } from '../subworkflows/local/prepare_ref'
+include { PREPARE_FASTQ          } from '../subworkflows/local/prepare_fastq'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -19,19 +21,37 @@ include { methodsDescriptionText } from '../subworkflows/local/utils_nfcore_spat
 workflow SPATIALOMICS {
 
     take:
-    ch_samplesheet // channel: samplesheet read in from --input
+    ch_samplesheet        // channel: samplesheet read in from --input
+    ch_fasta              // value channel: path(fasta)
+    ch_gtf                // value channel: path(gtf)
+    ch_gff                // value channel: path(gff)
+    ch_spaceranger_index  // value channel: path(spaceranger_index)
+
     main:
 
     ch_versions = Channel.empty()
     ch_multiqc_files = Channel.empty()
+
     //
-    // MODULE: Run FastQC
+    // SUBWORKFLOW: Prepare reference genome
     //
-    FASTQC (
+    PREPARE_REF (
+        ch_fasta,
+        ch_gtf,
+        ch_gff,
+        ch_spaceranger_index,
+    )
+    ch_versions = ch_versions.mix(PREPARE_REF.out.versions)
+
+    //
+    // SUBWORKFLOW: Prepare FastQ files
+    //
+    PREPARE_FASTQ (
         ch_samplesheet
     )
-    ch_multiqc_files = ch_multiqc_files.mix(FASTQC.out.zip.collect{it[1]})
-    ch_versions = ch_versions.mix(FASTQC.out.versions.first())
+    ch_reads = PREPARE_FASTQ.out.reads
+    ch_versions = ch_versions.mix(PREPARE_FASTQ.out.versions)
+    ch_multiqc_files = ch_multiqc_files.mix(PREPARE_FASTQ.out.multiqc_files)
 
     //
     // Collate and save software versions
@@ -43,7 +63,6 @@ workflow SPATIALOMICS {
             sort: true,
             newLine: true
         ).set { ch_collated_versions }
-
 
     //
     // MODULE: MultiQC
