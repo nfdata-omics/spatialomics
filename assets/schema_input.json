@@ -26,6 +26,48 @@
                 "exists": true,
                 "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.f(ast)?q\\.gz$",
                 "errorMessage": "FastQ file for reads 2 cannot contain spaces and must have extension '.fq.gz' or '.fastq.gz'"
+            },
+            "image": {
+                "type": "string",
+                "format": "file-path",
+                "exists": true,
+                "meta": ["image"]
+            },
+            "cytaimage": {
+                "type": "string",
+                "format": "file-path",
+                "exists": true,
+                "meta": ["cytaimage"]
+            },
+            "slide": {
+                "type": "string",
+                "meta": ["slide"]
+            },
+            "area": {
+                "type": "string",
+                "meta": ["area"]
+            },
+            "darkimage": {
+                "type": "string",
+                "format": "file-path",
+                "exists": true,
+                "meta": ["darkimage"]
+            },
+            "colorizedimage": {
+                "type": "string",
+                "format": "file-path",
+                "exists": true,
+                "meta": ["colorizedimage"]
+            },
+            "manual_alignment": {
+                "type": "string",
+                "meta": ["alignment"]
+            },
+            "slidefile": {
+                "type": "string",
+                "format": "file-path",
+                "exists": true,
+                "meta": ["slidefile"]
             }
         },
         "required": ["sample", "fastq_1"]

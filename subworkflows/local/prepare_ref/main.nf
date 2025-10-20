@@ -5,8 +5,9 @@
 include { GUNZIP as GUNZIP_FASTA            } from '../../../modules/nf-core/gunzip'
 include { GUNZIP as GUNZIP_GTF              } from '../../../modules/nf-core/gunzip'
 include { GUNZIP as GUNZIP_GFF              } from '../../../modules/nf-core/gunzip'
-include { UNTAR as UNTAR_STAR_INDEX         } from '../../../modules/nf-core/untar'
+include { UNTAR as UNTAR_SPACERANGER_REF    } from "../../../modules/nf-core/untar"
 include { GFFREAD                           } from '../../../modules/nf-core/gffread'
+include { SPACERANGER_MKGTF                 } from '../../../modules/nf-core/spaceranger/mkgtf'
 include { SPACERANGER_MKREF                 } from '../../../modules/nf-core/spaceranger/mkref'
 
 workflow PREPARE_REF {
@@ -28,8 +29,21 @@ workflow PREPARE_REF {
 
     if (params.spaceranger_index) {
 
+        ch_fasta = Channel.empty()
+        ch_gtf   = Channel.empty()
+
         // Define spaceranger index channel from the user-provided one
-        ch_spaceranger_index = spaceranger_index
+        if (params.spaceranger_index ==~ /.*\.tar\.gz$/) {
+            ref_file = file(params.spaceranger_index)
+            UNTAR_SPACERANGER_REF ([
+                ["id": file(params.spaceranger_index).name.replaceAll(/\.(tar)(\.gz)?$/, '')],
+                ref_file
+            ])
+            ch_spaceranger_index = UNTAR_SPACERANGER_REF.out.untar.map{ it[1] }
+            ch_versions = ch_versions.mix(UNTAR_SPACERANGER_REF.out.versions)
+        } else {
+            ch_spaceranger_index = file(params.spaceranger_index, type: "dir", checkIfExists: true)
+        }
 
     } else {
 
@@ -66,11 +80,19 @@ workflow PREPARE_REF {
         }
 
         //
+        // Prepare gft file by keeping specific biotypes
+        //
+        SPACERANGER_MKGTF(
+            ch_gtf,
+        )
+        ch_gtf_filtered = SPACERANGER_MKGTF.out.gtf
+
+        //
         // Create Spacer Ranger reference
         //
         SPACERANGER_MKREF(
             ch_fasta,
-            ch_gtf,
+            ch_gtf_filtered,
             file(params.fasta).name.replaceAll(/\.(fa|fasta)(\.gz)?$/, '')
         )
 
