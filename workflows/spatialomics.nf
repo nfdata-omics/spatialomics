@@ -65,9 +65,6 @@ workflow SPATIALOMICS {
         }
         .set { ch_reads_with_meta }
 
-    ch_reads_with_meta.reads.view()
-    ch_reads_with_meta.slide_and_img.view()
-
     //
     // MODULE: Align and quantify with Space Ranger
     //
