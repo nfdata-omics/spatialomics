@@ -44,6 +44,7 @@ workflow SPATIALOMICS {
         ch_gtf,
         ch_gff,
         ch_spaceranger_index,
+        params.reference_name
     )
     ch_versions = ch_versions.mix(PREPARE_REF.out.versions)
 

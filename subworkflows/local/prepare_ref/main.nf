@@ -17,12 +17,16 @@ workflow PREPARE_REF {
     gtf                      // file: /path/to/genome.gtf
     gff                      // file: /path/to/genome.gff
     spaceranger_index        // directory: /path/to/spaceranger/index/ (optional!)
+    reference_name           // string: name for the new reference (if building new index)
 
     main:
 
     assert (params.spaceranger_index) || (params.fasta && (params.gtf || params.gff)):
         "Must provide a the spaceranger index (--spaceranger_index) \
         or a fasta file ('--fasta') and a gtf/gff file ('--gtf'/'--gff') if no index is given!"
+
+    assert (params.spaceranger_index) || (reference_name):
+        "Must provide a reference name (--reference_name) when building a new spaceranger index!"
 
     // Versions collector
     ch_versions = Channel.empty()
@@ -34,15 +38,14 @@ workflow PREPARE_REF {
 
         // Define spaceranger index channel from the user-provided one
         if (params.spaceranger_index ==~ /.*\.tar\.gz$/) {
-            ref_file = file(params.spaceranger_index)
             UNTAR_SPACERANGER_REF ([
                 ["id": file(params.spaceranger_index).name.replaceAll(/\.(tar)(\.gz)?$/, '')],
-                ref_file
+                spaceranger_index
             ])
             ch_spaceranger_index = UNTAR_SPACERANGER_REF.out.untar.map{ it[1] }
             ch_versions = ch_versions.mix(UNTAR_SPACERANGER_REF.out.versions)
         } else {
-            ch_spaceranger_index = file(params.spaceranger_index, type: "dir", checkIfExists: true)
+            ch_spaceranger_index = spaceranger_index
         }
 
     } else {
@@ -93,7 +96,7 @@ workflow PREPARE_REF {
         SPACERANGER_MKREF(
             ch_fasta,
             ch_gtf_filtered,
-            file(params.fasta).name.replaceAll(/\.(fa|fasta)(\.gz)?$/, '')
+            reference_name
         )
 
         // Channel to handle SPACERANGER_MKREF output
