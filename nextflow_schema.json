@@ -84,6 +84,20 @@
                     "fa_icon": "fas fa-folder-open",
                     "exists": true
                 },
+                "reference_name": {
+                    "type": "string",
+                    "fa_icon": "fas fa-book",
+                    "description": "Genome assembly label that will be used to name a new index built from fasta and gft files with spaceranger mkref."
+                },
+                "probeset": {
+                    "type": "string",
+                    "format": "file-path",
+                    "mimetype": "text/csv",
+                    "pattern": "^\\S+\\.csv$",
+                    "description": "Location of Space Ranger probeset file.",
+                    "fa_icon": "fas fa-file-csv",
+                    "exists": true
+                },
                 "igenomes_ignore": {
                     "type": "boolean",
                     "description": "Do not load the iGenomes reference config.",
