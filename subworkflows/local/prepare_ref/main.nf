@@ -88,6 +88,7 @@ workflow PREPARE_REF {
         SPACERANGER_MKGTF(
             ch_gtf,
         )
+        ch_versions = ch_versions.mix(SPACERANGER_MKGTF.out.versions)
         ch_gtf_filtered = SPACERANGER_MKGTF.out.gtf
 
         //
@@ -98,6 +99,7 @@ workflow PREPARE_REF {
             ch_gtf_filtered,
             reference_name
         )
+        ch_versions = ch_versions.mix(SPACERANGER_MKREF.out.versions)
 
         // Channel to handle SPACERANGER_MKREF output
         ch_spaceranger_index = SPACERANGER_MKREF.out.reference.ifEmpty {

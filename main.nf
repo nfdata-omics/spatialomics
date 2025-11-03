@@ -25,7 +25,7 @@ include { getGenomeAttribute      } from './subworkflows/local/utils_nfcore_spat
 */
 
 params.fasta             = getGenomeAttribute('fasta')
-params.gft               = getGenomeAttribute('gtf')
+params.gtf               = getGenomeAttribute('gtf')
 params.spaceranger_index = getGenomeAttribute('spaceranger_index')
 
 /*
