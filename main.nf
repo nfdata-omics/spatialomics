@@ -48,7 +48,7 @@ workflow NFDATAOMICS_SPATIALOMICS {
     ch_fasta              = params.fasta             ? Channel.value(file(params.fasta, checkIfExists: true))             : Channel.empty()
     ch_gtf                = params.gtf               ? Channel.value(file(params.gtf, checkIfExists: true))               : Channel.empty()
     ch_gff                = params.gff               ? Channel.value(file(params.gff, checkIfExists: true))               : Channel.empty()
-    ch_spaceranger_index  = params.spaceranger_index ? Channel.value(file(params.spaceranger_index, checkIfExists: true)) : Channel.empty()
+    ch_spaceranger_index  = params.spaceranger_index ? file(params.spaceranger_index, checkIfExists: true) : Channel.empty()
     ch_probeset           = params.probeset          ? Channel.value(file(params.probeset, checkIfExists: true))          : Channel.empty()
 
     //

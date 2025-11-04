@@ -39,7 +39,7 @@ workflow PREPARE_REF {
         // Define spaceranger index channel from the user-provided one
         if (params.spaceranger_index ==~ /.*\.tar\.gz$/) {
             UNTAR_SPACERANGER_REF ([
-                ["id": file(params.spaceranger_index).name.replaceAll(/\.(tar)(\.gz)?$/, '')],
+                ["id": params.spaceranger_index.tokenize('/').last().replaceAll(/\.(tar)(\.gz)?$/, '')],
                 spaceranger_index
             ])
             ch_spaceranger_index = UNTAR_SPACERANGER_REF.out.untar.map{ it[1] }
