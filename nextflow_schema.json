@@ -62,8 +62,41 @@
                     "mimetype": "text/plain",
                     "pattern": "^\\S+\\.fn?a(sta)?(\\.gz)?$",
                     "description": "Path to FASTA genome file.",
-                    "help_text": "This parameter is *mandatory* if `--genome` is not specified. If you don't have a BWA index available this will be generated for you automatically. Combine with `--save_reference` to save BWA index for future runs.",
+                    "help_text": "This parameter is *mandatory* if `--genome` or `--spaceranger_index` are not specified. If you don't have a Space Ranger index available this will be generated for you automatically.",
                     "fa_icon": "far fa-file-code"
+                },
+                "gtf": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "mimetype": "text/plain",
+                    "pattern": "^\\S+\\.gtf(\\.gz)?$",
+                    "description": "Path to GTF annotation file.",
+                    "help_text": "This parameter is mandatory if `--genome` or `--spaceranger_index` are not specified. If you don't have a Space Ranger index available this will be generated for you automatically.",
+                    "errorMessage": "The GTF file must have a .gtf or .gtf.gz extension, must not contain spaces, and must exist.",
+                    "fa_icon": "fas fa-code-branch"
+                },
+                "spaceranger_index": {
+                    "type": "string",
+                    "format": "path",
+                    "description": "Path to a Space Ranger reference folder. Can alternatively be provided as `tar.gz` archive.",
+                    "help_text": "Please see the [10x website](https://support.10xgenomics.com/spatial-gene-expression/software/downloads/latest) to download either of the supported human or mouse references.",
+                    "fa_icon": "fas fa-folder-open",
+                    "exists": true
+                },
+                "reference_name": {
+                    "type": "string",
+                    "fa_icon": "fas fa-book",
+                    "description": "Genome assembly label that will be used to name a new index built from fasta and gft files with spaceranger mkref."
+                },
+                "probeset": {
+                    "type": "string",
+                    "format": "file-path",
+                    "mimetype": "text/csv",
+                    "pattern": "^\\S+\\.csv$",
+                    "description": "Location of Space Ranger probeset file.",
+                    "fa_icon": "fas fa-file-csv",
+                    "exists": true
                 },
                 "igenomes_ignore": {
                     "type": "boolean",

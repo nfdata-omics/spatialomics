@@ -25,7 +25,7 @@ include { getGenomeAttribute      } from './subworkflows/local/utils_nfcore_spat
 */
 
 params.fasta             = getGenomeAttribute('fasta')
-params.gft               = getGenomeAttribute('gtf')
+params.gtf               = getGenomeAttribute('gtf')
 params.spaceranger_index = getGenomeAttribute('spaceranger_index')
 
 /*
@@ -48,7 +48,8 @@ workflow NFDATAOMICS_SPATIALOMICS {
     ch_fasta              = params.fasta             ? Channel.value(file(params.fasta, checkIfExists: true))             : Channel.empty()
     ch_gtf                = params.gtf               ? Channel.value(file(params.gtf, checkIfExists: true))               : Channel.empty()
     ch_gff                = params.gff               ? Channel.value(file(params.gff, checkIfExists: true))               : Channel.empty()
-    ch_spaceranger_index  = params.spaceranger_index ? Channel.value(file(params.spaceranger_index, checkIfExists: true)) : Channel.empty()
+    ch_spaceranger_index  = params.spaceranger_index ? file(params.spaceranger_index, checkIfExists: true) : Channel.empty()
+    ch_probeset           = params.probeset          ? Channel.value(file(params.probeset, checkIfExists: true))          : Channel.empty()
 
     //
     // WORKFLOW: Run pipeline
@@ -58,7 +59,8 @@ workflow NFDATAOMICS_SPATIALOMICS {
         ch_fasta,
         ch_gtf,
         ch_gff,
-        ch_spaceranger_index
+        ch_spaceranger_index,
+        ch_probeset
     )
     emit:
     multiqc_report = SPATIALOMICS.out.multiqc_report // channel: /path/to/multiqc_report.html

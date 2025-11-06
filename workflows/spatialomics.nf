@@ -5,12 +5,15 @@
 */
 include { FASTQC                 } from '../modules/nf-core/fastqc/main'
 include { MULTIQC                } from '../modules/nf-core/multiqc/main'
+include { SPACERANGER_COUNT      } from '../modules/nf-core/spaceranger/count/main'
+
+include { PREPARE_REF            } from '../subworkflows/local/prepare_ref'
+include { PREPARE_FASTQ          } from '../subworkflows/local/prepare_fastq'
+
 include { paramsSummaryMap       } from 'plugin/nf-schema'
 include { paramsSummaryMultiqc   } from '../subworkflows/nf-core/utils_nfcore_pipeline'
 include { softwareVersionsToYAML } from '../subworkflows/nf-core/utils_nfcore_pipeline'
 include { methodsDescriptionText } from '../subworkflows/local/utils_nfcore_spatialomics_pipeline'
-include { PREPARE_REF            } from '../subworkflows/local/prepare_ref'
-include { PREPARE_FASTQ          } from '../subworkflows/local/prepare_fastq'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -26,6 +29,7 @@ workflow SPATIALOMICS {
     ch_gtf                // value channel: path(gtf)
     ch_gff                // value channel: path(gff)
     ch_spaceranger_index  // value channel: path(spaceranger_index)
+    ch_probeset           // value channel: path(probeset) (optional)
 
     main:
 
@@ -40,6 +44,7 @@ workflow SPATIALOMICS {
         ch_gtf,
         ch_gff,
         ch_spaceranger_index,
+        params.reference_name
     )
     ch_versions = ch_versions.mix(PREPARE_REF.out.versions)
 
@@ -52,6 +57,24 @@ workflow SPATIALOMICS {
     ch_reads = PREPARE_FASTQ.out.reads
     ch_versions = ch_versions.mix(PREPARE_FASTQ.out.versions)
     ch_multiqc_files = ch_multiqc_files.mix(PREPARE_FASTQ.out.multiqc_files)
+
+    ch_reads
+        .multiMap { meta, fastq ->
+            reads: [ ["id": meta.id], fastq ]
+            slide_and_img: [ ["id": meta.id], meta.image, meta.slide, meta.area, meta.cytaimage, meta.darkimage, meta.colorizedimage, meta.alignment, meta.slidefile ]
+        }
+        .set { ch_reads_with_meta }
+
+    //
+    // MODULE: Align and quantify with Space Ranger
+    //
+    SPACERANGER_COUNT(
+        ch_reads_with_meta.reads,
+        ch_reads_with_meta.slide_and_img,
+        PREPARE_REF.out.spaceranger_index,
+        ch_probeset
+    )
+    ch_versions = ch_versions.mix(SPACERANGER_COUNT.out.versions)
 
     //
     // Collate and save software versions
