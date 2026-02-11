@@ -26,12 +26,12 @@ lint:
     - validation.help.afterText
     - validation.summary.beforeText
     - validation.summary.afterText
-nf_core_version: 3.4.1
+nf_core_version: 3.5.2
 repository_type: pipeline
 template:
   author: M. Bonfanti, S. Terzoli
   description: Analysis of spatial omics dataset
-  force: false
+  force: true 
   is_nfcore: false
   name: spatialomics
   org: nfdata-omics
