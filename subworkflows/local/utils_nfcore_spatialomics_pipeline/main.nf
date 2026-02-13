@@ -86,8 +86,9 @@ workflow PIPELINE_INITIALISATION {
 
     channel
         .fromList(samplesheetToList(params.input, "${projectDir}/assets/schema_input.json"))
+        .filter { _meta, fastq_1, _fastq_2, _spaceranger -> fastq_1 }
         .map {
-            meta, fastq_1, fastq_2 ->
+            meta, fastq_1, fastq_2, _spaceranger ->
                 if (!fastq_2) {
                     return [ meta.id, meta + [ single_end:true ], [ fastq_1 ] ]
                 } else {
@@ -104,9 +105,16 @@ workflow PIPELINE_INITIALISATION {
         }
         .set { ch_samplesheet }
 
+    channel
+        .fromList(samplesheetToList(params.input, "${projectDir}/assets/schema_input.json"))
+        .filter { _meta, _fastq_1, _fastq_2, spaceranger -> spaceranger }
+        .map { meta, _fastq_1, _fastq_2, spaceranger -> [meta, spaceranger] }
+        .set { ch_spaceranger_outs }
+
     emit:
-    samplesheet = ch_samplesheet
-    versions    = ch_versions
+    samplesheet      = ch_samplesheet
+    spaceranger_outs = ch_spaceranger_outs
+    versions         = ch_versions
 }
 
 /*

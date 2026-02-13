@@ -28,6 +28,7 @@ workflow SPATIALOMICS {
 
     take:
     ch_samplesheet        // channel: samplesheet read in from --input
+    ch_spaceranger_outs   // channel: spaceranger output paths read in from --input
     ch_fasta              // value channel: path(fasta)
     ch_gtf                // value channel: path(gtf)
     ch_gff                // value channel: path(gff)
@@ -79,11 +80,16 @@ workflow SPATIALOMICS {
     )
     ch_versions = ch_versions.mix(SPACERANGER_COUNT.out.versions)
 
+    // Collect Space Ranger output paths for downstream processing
+    SPACERANGER_COUNT.out.outs
+        .mix(ch_spaceranger_outs) // Add any additional Space Ranger output paths provided via --input
+        .set { ch_all_spaceranger_outs }
+
     //
     // MODULE: Collect Space Ranger metrics across samples
     //
     COLLECT_SPACERANGER_METRICS (
-        SPACERANGER_COUNT.out.outs
+        ch_all_spaceranger_outs
             .collect{ _meta, folder -> folder }
     )
     ch_versions = ch_versions.mix(COLLECT_SPACERANGER_METRICS.out.versions)
@@ -93,7 +99,7 @@ workflow SPATIALOMICS {
     // MODULE: Convert Space Ranger output to Zarr and compress it
     //
     SPACERANGER_TO_ZARR (
-        SPACERANGER_COUNT.out.outs,
+        ch_all_spaceranger_outs,
         "True"
     )
     ch_versions = ch_versions.mix(SPACERANGER_TO_ZARR.out.versions.first())
