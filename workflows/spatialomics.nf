@@ -6,6 +6,7 @@
 include { FASTQC                 } from '../modules/nf-core/fastqc/main'
 include { MULTIQC                } from '../modules/nf-core/multiqc/main'
 include { SPACERANGER_COUNT      } from '../modules/nf-core/spaceranger/count/main'
+include { COLLECT_SPACERANGER_METRICS    } from '../modules/local/collect_spaceranger_metrics/main'
 include { SPACERANGER_TO_ZARR    } from '../modules/local/spaceranger_to_zarr/main'
 include { TAR                    } from '../modules/nf-core/tar/main'
 
@@ -77,6 +78,16 @@ workflow SPATIALOMICS {
         ch_probeset
     )
     ch_versions = ch_versions.mix(SPACERANGER_COUNT.out.versions)
+
+    //
+    // MODULE: Collect Space Ranger metrics across samples
+    //
+    COLLECT_SPACERANGER_METRICS (
+        SPACERANGER_COUNT.out.outs
+            .collect{ _meta, folder -> folder }
+    )
+    ch_versions = ch_versions.mix(COLLECT_SPACERANGER_METRICS.out.versions)
+    ch_multiqc_files = ch_multiqc_files.mix(COLLECT_SPACERANGER_METRICS.out.metrics)
 
     //
     // MODULE: Convert Space Ranger output to Zarr and compress it
