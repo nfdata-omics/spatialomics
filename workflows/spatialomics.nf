@@ -6,6 +6,8 @@
 include { FASTQC                 } from '../modules/nf-core/fastqc/main'
 include { MULTIQC                } from '../modules/nf-core/multiqc/main'
 include { SPACERANGER_COUNT      } from '../modules/nf-core/spaceranger/count/main'
+include { SPACERANGER_TO_ZARR    } from '../modules/local/spaceranger_to_zarr/main'
+include { TAR                    } from '../modules/nf-core/tar/main'
 
 include { PREPARE_REF            } from '../subworkflows/local/prepare_ref'
 include { PREPARE_FASTQ          } from '../subworkflows/local/prepare_fastq'
@@ -75,6 +77,21 @@ workflow SPATIALOMICS {
         ch_probeset
     )
     ch_versions = ch_versions.mix(SPACERANGER_COUNT.out.versions)
+
+    //
+    // MODULE: Convert Space Ranger output to Zarr and compress it
+    //
+    SPACERANGER_TO_ZARR (
+        SPACERANGER_COUNT.out.outs,
+        "True"
+    )
+    ch_versions = ch_versions.mix(SPACERANGER_TO_ZARR.out.versions.first())
+
+    TAR (
+        SPACERANGER_TO_ZARR.out.zarr,
+        '.gz'
+    )
+    ch_versions = ch_versions.mix(TAR.out.versions.first())
 
     //
     // Collate and save software versions

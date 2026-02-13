@@ -11,7 +11,8 @@ process SPACERANGER_COUNT {
     path(probeset)
 
     output:
-    tuple val(meta), path("outs/**"), emit: outs
+    tuple val(meta), path("*_web_summary.html"), emit: web_summary
+    tuple val(meta), path("outs"), emit: outs
     path "versions.yml", emit: versions
 
     when:
@@ -52,6 +53,7 @@ process SPACERANGER_COUNT {
         $slidefile \\
         $args
     mv ${prefix}/outs outs
+    mv outs/web_summary.html ${prefix}_web_summary.html
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
