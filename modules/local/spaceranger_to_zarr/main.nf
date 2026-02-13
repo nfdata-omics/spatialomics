@@ -64,8 +64,8 @@ process SPACERANGER_TO_ZARR {
             except Exception:
                 version = None
         if version is not None:
-            versions[lib] = version
-    versions['python'] = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+            versions["${task.process}"][lib] = version
+    versions["${task.process}"]['python'] = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
 
     with open('versions.yml', 'w') as f:
         yaml.dump(versions, f)
@@ -94,8 +94,8 @@ process SPACERANGER_TO_ZARR {
             except Exception:
                 version = None
         if version is not None:
-            versions[lib] = version
-    versions['python'] = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+            versions["${task.process}"][lib] = version
+    versions["${task.process}"]['python'] = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
 
     with open('versions.yml', 'w') as f:
         yaml.dump(versions, f)
