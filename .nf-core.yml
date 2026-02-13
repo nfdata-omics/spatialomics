@@ -31,7 +31,7 @@ repository_type: pipeline
 template:
   author: M. Bonfanti, S. Terzoli
   description: Analysis of spatial omics dataset
-  force: true 
+  force: true
   is_nfcore: false
   name: spatialomics
   org: nfdata-omics
