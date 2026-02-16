@@ -293,7 +293,6 @@
                 "pipeline_info/spatialomics_software_mqc_versions.yml"
             ],
             [
-                "Visium_HD_Human_Lung_Cancer_HD_Only_Experiment2.zarr.tar.gz:md5,75023ac7d54dfecdab5eda514be37d41",
                 "filtered_feature_bc_matrix.h5:md5,0c04bf2ea059df078bec3e765b1f3105",
                 "barcodes.tsv.gz:md5,b24a9f7bb39f2dcd4e662cbe1eaf7763",
                 "features.tsv.gz:md5,53092c021f35473a120886f08871c246",
@@ -331,12 +330,8 @@
                 "differential_expression.csv:md5,6ef899cb4dd1f2f424d9c52293b9b88a",
                 "differential_expression.csv:md5,32c54cd9fefe50c5cbb305c6f87232ee",
                 "differential_expression.csv:md5,03a1c90d247012bc695391ebb57b1757",
-                "components.csv:md5,c0fa4e916f7c7f5e2a994c7ce0e2926c",
                 "dispersion.csv:md5,825408c9678100049f0244361138a844",
                 "features_selected.csv:md5,7fcad5f834af732ca287ad6ce3901b37",
-                "projection.csv:md5,cf8f37dcfe6c718b28a8c13c9eca6dc6",
-                "variance.csv:md5,fc0451575fe03683e19bfc7e1981be3c",
-                "projection.csv:md5,61af621c1e89a2d8d67c74f2d412d548",
                 "filtered_feature_bc_matrix.h5:md5,6363415f0bfdbdae9a3eab5c8d838ae8",
                 "barcodes.tsv.gz:md5,2f707eec36c8c8478071836e375c589d",
                 "features.tsv.gz:md5,53092c021f35473a120886f08871c246",
@@ -373,12 +368,8 @@
                 "differential_expression.csv:md5,dfb5f98340cba636ca16f236603dbef4",
                 "differential_expression.csv:md5,b304a7500e32f090e7705f730a10e2b0",
                 "differential_expression.csv:md5,fb3f5bc3776ac2e6d67decdcb32dcd24",
-                "components.csv:md5,1df663a266f1a2fd0796862148aba19b",
                 "dispersion.csv:md5,7a3d38d43bc8d6b328de90cfbe90660c",
                 "features_selected.csv:md5,708baf61d4532a9aab66d2446475ab7c",
-                "projection.csv:md5,cee8321db30438b58cd200d78dea2647",
-                "variance.csv:md5,a0c5fe923c91ac9b51dfa4fb9f570500",
-                "projection.csv:md5,7dc88f726fbde3712f11ea02f057f6ac",
                 "filtered_feature_bc_matrix.h5:md5,5c1578fe690b046a2335e864312fca41",
                 "barcodes.tsv.gz:md5,ec696f2a78ecb6aa4ff17afad0ebe075",
                 "features.tsv.gz:md5,53092c021f35473a120886f08871c246",
@@ -395,7 +386,6 @@
                 "tissue_hires_image.png:md5,e86177781b07119c5a680ea4af1d1d0d",
                 "tissue_lowres_image.png:md5,9aad2a56128c450c76fabbb44fb4c85a",
                 "tissue_positions.parquet:md5,36c859a18ff9c86cd1279ac96c433627",
-                "feature_slice.h5:md5,3be11985be80bee6bae0ec7721280c8a",
                 "metrics_summary.csv:md5,bade113e17b62be4e41cd3c98b6e1c81",
                 "possorted_genome_bam.bam:md5,c9e1bfe554e6762bae55bf733cb9f221",
                 "possorted_genome_bam.bam.bai:md5,76e1653a2f2620e3e6dfb4fee4d4171d",
@@ -425,6 +415,6 @@
             "nf-test": "0.9.3",
             "nextflow": "25.10.3"
         },
-        "timestamp": "2026-02-13T17:08:54.444685022"
+        "timestamp": "2026-02-16T12:25:01.442088897"
     }
 }
