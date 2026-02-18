@@ -9,7 +9,12 @@ Initial release of nfdata-omics/spatialomics, created with the [nf-core](https:/
 
 ### `Added`
 
+- Implemented alignment with spaceranger [2](https://github.com/nfdata-omics/spatialomics/pull/2)
+- Implemented conversion from spaceranger output to zarr, possibility of direct input of a spaceranger out folder, collecting metrics file from spaceranger to multiQC [7](https://github.com/nfdata-omics/spatialomics/pull/7)
+
 ### `Fixed`
+
+- Template update to 3.5.2 [3](https://github.com/nfdata-omics/spatialomics/pull/3)
 
 ### `Dependencies`
 

@@ -68,8 +68,14 @@
                 "format": "file-path",
                 "exists": true,
                 "meta": ["slidefile"]
+            },
+            "spaceranger": {
+                "type": "string",
+                "format": "path",
+                "exists": true,
+                "errorMessage": "Path to Space Ranger output directory must exist"
             }
         },
-        "required": ["sample", "fastq_1"]
+        "anyOf": [{ "required": ["sample", "fastq_1"] }, { "required": ["sample", "spaceranger"] }]
     }
 }

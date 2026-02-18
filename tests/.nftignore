@@ -13,3 +13,8 @@ pipeline_info/*.{html,json,txt,yml}
 count/**.cloupe
 count/*/molecule_info.h5
 count/**web_summary.html
+count/**components.csv
+count/**projection.csv
+count/**variance.csv
+count/*/feature_slice.h5
+count/*.zarr.tar.gz

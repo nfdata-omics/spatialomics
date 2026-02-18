@@ -41,6 +41,7 @@ workflow NFDATAOMICS_SPATIALOMICS {
 
     take:
     samplesheet // channel: samplesheet read in from --input
+    spaceranger_outs // channel: spaceranger output paths read in from --input
 
     main:
 
@@ -56,6 +57,7 @@ workflow NFDATAOMICS_SPATIALOMICS {
     //
     SPATIALOMICS (
         samplesheet,
+        spaceranger_outs,
         ch_fasta,
         ch_gtf,
         ch_gff,
@@ -93,7 +95,8 @@ workflow {
     // WORKFLOW: Run main workflow
     //
     NFDATAOMICS_SPATIALOMICS (
-        PIPELINE_INITIALISATION.out.samplesheet
+        PIPELINE_INITIALISATION.out.samplesheet,
+        PIPELINE_INITIALISATION.out.spaceranger_outs
     )
 
     //

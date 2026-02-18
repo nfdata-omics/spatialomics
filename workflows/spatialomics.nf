@@ -6,6 +6,9 @@
 include { FASTQC                 } from '../modules/nf-core/fastqc/main'
 include { MULTIQC                } from '../modules/nf-core/multiqc/main'
 include { SPACERANGER_COUNT      } from '../modules/nf-core/spaceranger/count/main'
+include { COLLECT_SPACERANGER_METRICS    } from '../modules/local/collect_spaceranger_metrics/main'
+include { SPACERANGER_TO_ZARR    } from '../modules/local/spaceranger_to_zarr/main'
+include { TAR                    } from '../modules/nf-core/tar/main'
 
 include { PREPARE_REF            } from '../subworkflows/local/prepare_ref'
 include { PREPARE_FASTQ          } from '../subworkflows/local/prepare_fastq'
@@ -25,6 +28,7 @@ workflow SPATIALOMICS {
 
     take:
     ch_samplesheet        // channel: samplesheet read in from --input
+    ch_spaceranger_outs   // channel: spaceranger output paths read in from --input
     ch_fasta              // value channel: path(fasta)
     ch_gtf                // value channel: path(gtf)
     ch_gff                // value channel: path(gff)
@@ -75,6 +79,36 @@ workflow SPATIALOMICS {
         ch_probeset
     )
     ch_versions = ch_versions.mix(SPACERANGER_COUNT.out.versions)
+
+    // Collect Space Ranger output paths for downstream processing
+    SPACERANGER_COUNT.out.outs
+        .mix(ch_spaceranger_outs) // Add any additional Space Ranger output paths provided via --input
+        .set { ch_all_spaceranger_outs }
+
+    //
+    // MODULE: Collect Space Ranger metrics across samples
+    //
+    COLLECT_SPACERANGER_METRICS (
+        ch_all_spaceranger_outs
+            .collect{ _meta, folder -> folder }
+    )
+    ch_versions = ch_versions.mix(COLLECT_SPACERANGER_METRICS.out.versions)
+    ch_multiqc_files = ch_multiqc_files.mix(COLLECT_SPACERANGER_METRICS.out.metrics)
+
+    //
+    // MODULE: Convert Space Ranger output to Zarr and compress it
+    //
+    SPACERANGER_TO_ZARR (
+        ch_all_spaceranger_outs,
+        "True"
+    )
+    ch_versions = ch_versions.mix(SPACERANGER_TO_ZARR.out.versions.first())
+
+    TAR (
+        SPACERANGER_TO_ZARR.out.zarr,
+        '.gz'
+    )
+    ch_versions = ch_versions.mix(TAR.out.versions.first())
 
     //
     // Collate and save software versions
