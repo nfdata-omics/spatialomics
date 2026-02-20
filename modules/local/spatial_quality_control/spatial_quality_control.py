@@ -1,4 +1,12 @@
+
+"""Spatial quality control module for spatial omics data."""
+
+import importlib
+import importlib.metadata
 import argparse
+import sys
+import yaml
+
 import scipy as sp
 import pandas as pd
 import matplotlib
@@ -8,6 +16,7 @@ import scanpy as sc
 import spatialdata
 import spatialdata_plot # noqa: F401 # pyright: ignore[reportUnusedImport] # pylint: disable=unused-import
 import spotsweeper.local_outliers as lo
+
 matplotlib.use("Agg")
 
 def qc_from_h5ad(
@@ -20,31 +29,32 @@ def qc_from_h5ad(
     novelty_thresh=0.0
 ):
     """
-    Perform full QC starting from a 016um H5AD file, including:
-    - In-tissue filtering
-    - Genes/UMI per spot
-    - Mitochondrial, ribosomal, hemoglobin gene QC
-    - Combined QC plots
-    - Local outlier detection
-    - Save filtered AnnData
+    Perform spatial quality control analysis on spatial omics data.
+
+    Reads a spatialdata zarr object, calculates QC metrics, identifies global and
+    local outliers, generates distribution plots and spatial visualizations, and
+    saves annotated observations and QC summary statistics.
 
     Parameters
     ----------
-    h5ad_path : str
-        Path to the 016um H5AD file.
+    zarr_folder : str
+        Path to the input Zarr object containing spatialdata.
     sample_id : str
-        Sample identifier.
-    plots_dir : str
-        Directory where QC plots will be saved.
-    output_dir : str
-        Directory where the filtered AnnData will be saved.
-    pdf_pages : PdfPages, optional
-        Pass an open PdfPages object to save all plots in a single PDF.
+        Unique identifier for the sample being processed.
+    resolution : str, optional
+        Resolution of the spatial data to process. Default is "016um".
+    min_counts : int, optional
+        Minimum number of UMI counts per spot. Default is 100.
+    min_genes : int, optional
+        Minimum number of genes detected per spot. Default is 50.
+    max_mt : float, optional
+        Maximum percentage of mitochondrial counts allowed. Default is 20.
+    novelty_thresh : float, optional
+        Minimum novelty score (complexity) threshold. Default is 0.0.
 
     Returns
     -------
-    dict
-        Summary statistics: total spots, in-tissue spots, genes/UMI per spot.
+    None
     """
 
     sns.set_theme(style="white")
@@ -125,7 +135,7 @@ def qc_from_h5ad(
     adata.obs.loc[out_of_tissue_mask, qc_flag_columns] = pd.NA
 
     # save annotation to csv
-    adata.obs.to_csv(f"{sample_id}_QC_metrics.csv")
+    adata.obs.to_csv(f"{sample_id}_qc_annotated_obs.csv")
 
     # Save AnnData with quality control annotation
     adata.write(f"{sample_id}_{resolution}_qc.h5ad")
@@ -145,7 +155,7 @@ def qc_from_h5ad(
 
     # Save summary as CSV
     summary_df = pd.DataFrame([summary_dict])
-    summary_df.to_csv(f"{sample_id}_QC_summary.csv", index=False)
+    summary_df.to_csv(f"{sample_id}_qc_metrics.csv", index=False)
 
     adata.obs[qc_flag_columns] = adata.obs[qc_flag_columns].astype(str)
 
@@ -171,7 +181,7 @@ def qc_from_h5ad(
             sdata.pl.render_shapes(  # pylint: disable=no-member
                 f"{sample_id}_square_{resolution}",
                 color=color,
-                colormap="viridis",
+                cmap="viridis",
             ).pl.show(
                 coordinate_systems=sample_id,
                 title=color,
@@ -190,13 +200,26 @@ def qc_from_h5ad(
                 a.set_title("")   # clear colorbar title if present
                 a.tick_params(labelsize=7)
 
-        fig.savefig(f"{sample_id}_QC_spatial_plots.png")
-
-
-    return
+        fig.savefig(f"{sample_id}_qc_spatial_plots.png")
 
 
 def distribution_plots(adata, sample_id, min_counts, min_genes, max_mt):
+    """
+    Generate distribution plots for QC metrics.
+
+    Parameters
+    ----------
+    adata : AnnData
+        Annotated data object with QC metrics.
+    sample_id : str
+        Unique identifier for the sample.
+    min_counts : int
+        Minimum number of UMI counts per spot.
+    min_genes : int
+        Minimum number of genes detected per spot.
+    max_mt : float
+        Maximum percentage of mitochondrial counts allowed.
+    """
 
     fig, axs = plt.subplots(1, 3, figsize=(18, 5))
 
@@ -219,18 +242,73 @@ def distribution_plots(adata, sample_id, min_counts, min_genes, max_mt):
     axs[2].set_ylabel("Number of spots")
 
     plt.tight_layout()
-    plt.savefig(f"{sample_id}_quality_distributions.png")
+    plt.savefig(f"{sample_id}_qc_distributions.png")
     plt.close(fig)
+
+
+def versions_yaml(process_name, list_of_libs=None):
+    """
+    Generate YAML formatted string with versions of relevant libraries.
+
+    Parameters
+    ----------
+    process_name : str
+        Process name to use as key in the versions dictionary.
+    list_of_libs : list of str, optional
+        List of specific library names to include in the versions dictionary.
+
+    Returns
+    -------
+    str
+        YAML formatted string containing library versions and Python version.
+    """
+
+    versions = {}
+    versions[process_name] = {}
+
+    versions[process_name]['python'] = f"{sys.version_info.major}" \
+        f".{sys.version_info.minor}.{sys.version_info.micro}"
+
+    for lib in list_of_libs:
+        try:
+            version = importlib.metadata.version(lib)
+        except importlib.metadata.PackageNotFoundError:
+            try:
+                module = importlib.import_module(lib)
+                version = getattr(module, '__version__', 'unknown')
+            except (ImportError, AttributeError):
+                version = None
+        if version is not None:
+            versions[process_name][lib] = version
+
+    return yaml.dump(versions)
 
 
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Spatial quality control")
-    parser.add_argument("--zarr", type=str, required=True,
+    parser.add_argument("--zarr", type=str,
                         help="Path to input Zarr object (zarr file)")
-    parser.add_argument("--sample", type=str, required=True,
+    parser.add_argument("--sample", type=str,
                         help="Sample ID to process")
+    parser.add_argument("--versions-dict", type=str,
+                        help="Return dictionary of versions used by the module and exit")
 
     args = parser.parse_args()
 
-    qc_from_h5ad(args.zarr, args.sample)
+    if args.versions_dict:
+        libs = [
+            "scanpy",
+            "spatialdata",
+            "spatialdata-plot",
+            "spotsweeper",
+            "seaborn",
+            "matplotlib",
+            "pandas",
+            "scipy",
+        ]
+        print(versions_yaml(args.versions_dict, libs))
+    else:
+        if not args.zarr or not args.sample:
+            parser.error("--zarr and --sample are required")
+        qc_from_h5ad(args.zarr, args.sample)
