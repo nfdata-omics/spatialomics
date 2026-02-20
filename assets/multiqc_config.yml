@@ -72,9 +72,3 @@ custom_data:
     plot_type: "table"
     pconfig:
       id: "qc_metrics_table"
-
-
-module_order:
-  -
-  - qc_metrics
-  - qc_distributions
