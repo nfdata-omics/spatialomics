@@ -6,7 +6,6 @@ process SPATIAL_QUALITY_CONTROL {
 
     input:
     tuple val(meta), path(zarr_folder)
-    path script_file
 
     output:
     path "versions.yml",                             emit: versions
@@ -26,13 +25,17 @@ process SPATIAL_QUALITY_CONTROL {
     export MPLCONFIGDIR=\${TMPDIR:-/tmp}
     export XDG_CONFIG_HOME=\${TMPDIR:-/tmp}
 
-    python3 ${script_file} \
+    cat << END_SCRIPT > spatial_quality_control.py
+${file("${moduleDir}/spatial_quality_control.py").text}
+END_SCRIPT
+
+    python3 spatial_quality_control.py \
         --zarr "${zarr_folder}" \
         --sample "${prefix}"
 
     mv ${prefix}_qc_spatial_plots.png ${prefix}_qc_mqc.png
 
-    python3 ${script_file} \
+    python3 spatial_quality_control.py \
         --versions-dict "${task.process}" > versions.yml
     """
 
@@ -45,7 +48,7 @@ process SPATIAL_QUALITY_CONTROL {
     touch ${prefix}_qc_distributions.png
     touch ${prefix}_qc_mqc.png
 
-    python3 ${script_file} \
+    python3 spatial_quality_control.py \
         --versions-dict "${task.process}" > versions.yml
     """
 }

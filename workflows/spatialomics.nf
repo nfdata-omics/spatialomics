@@ -115,8 +115,7 @@ workflow SPATIALOMICS {
     // MODULE: Spatial quality control
     //
     SPATIAL_QUALITY_CONTROL (
-        SPACERANGER_TO_ZARR.out.zarr,
-        "${projectDir}/modules/local/spatial_quality_control/spatial_quality_control.py"
+        SPACERANGER_TO_ZARR.out.zarr
     )
     ch_versions = ch_versions.mix(SPATIAL_QUALITY_CONTROL.out.versions.first())
     ch_multiqc_files = ch_multiqc_files.mix(SPATIAL_QUALITY_CONTROL.out.mqc_plot.collect{ _meta, path -> path })
