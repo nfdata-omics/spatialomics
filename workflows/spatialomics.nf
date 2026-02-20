@@ -10,6 +10,7 @@ include { COLLECT_SPACERANGER_METRICS } from '../modules/local/collect_spacerang
 include { SPACERANGER_TO_ZARR         } from '../modules/local/spaceranger_to_zarr/main'
 include { TAR                         } from '../modules/nf-core/tar/main'
 include { SPATIAL_QUALITY_CONTROL     } from '../modules/local/spatial_quality_control/main'
+include { COLLECT_QC                  } from '../modules/local/collect_qc/main'
 
 include { PREPARE_REF            } from '../subworkflows/local/prepare_ref'
 include { PREPARE_FASTQ          } from '../subworkflows/local/prepare_fastq'
@@ -118,6 +119,15 @@ workflow SPATIALOMICS {
         SPACERANGER_TO_ZARR.out.zarr
     )
     ch_versions = ch_versions.mix(SPATIAL_QUALITY_CONTROL.out.versions.first())
+
+    COLLECT_QC (
+        SPATIAL_QUALITY_CONTROL.out.annotated_obs.collect{ _meta, path -> path },
+        SPATIAL_QUALITY_CONTROL.out.metrics.collect{ _meta, path -> path }
+    )
+    ch_versions = ch_versions.mix(COLLECT_QC.out.versions.first())
+
+    ch_multiqc_files = ch_multiqc_files.mix(COLLECT_QC.out.metrics)
+    ch_multiqc_files = ch_multiqc_files.mix(COLLECT_QC.out.distributions)
     ch_multiqc_files = ch_multiqc_files.mix(SPATIAL_QUALITY_CONTROL.out.mqc_plot.collect{ _meta, path -> path })
 
     //
