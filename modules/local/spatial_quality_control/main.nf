@@ -42,6 +42,10 @@ END_SCRIPT
     stub:
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
+    cat << END_SCRIPT > spatial_quality_control.py
+${file("${moduleDir}/spatial_quality_control.py").text}
+END_SCRIPT
+
     touch ${prefix}_qc.h5ad
     touch ${prefix}_qc_annotated_obs.csv
     touch ${prefix}_qc_metrics.csv
