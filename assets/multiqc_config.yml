@@ -6,6 +6,8 @@ report_section_order:
     order: 5000
   spaceranger_metrics:
     order: 4000
+  qc_section:
+    order: 3000
   "nfdata-omics-spatialomics-methods-description":
     order: -1000
   software_versions:
@@ -30,6 +32,10 @@ sp:
     contents: None
   spaceranger_metrics:
     fn: "spaceranger_metrics.csv"
+  qc_metrics:
+    fn: "qc_metrics.csv"
+  qc_distributions:
+    fn: "qc_distributions.html"
 
 custom_data:
   spaceranger_metrics:
@@ -42,3 +48,27 @@ custom_data:
     plot_type: "table"
     pconfig:
       id: "spaceranger_metrics_table"
+  qc_distributions:
+    parent_id: qc_section
+    parent_name: "Quality Control"
+    parent_description: |
+      This section includes key quality control (QC) metrics and their distributions across all samples.
+    id: "qc_distributions"
+    section_name: "QC distributions"
+    description: |
+      This section includes visualizations of the distributions of QC metrics across all samples.
+    plot_type: "html"
+    pconfig:
+      id: "qc_distributions_html"
+  qc_metrics:
+    parent_id: qc_section
+    parent_name: "Quality Control"
+    parent_description: |
+      This section includes key quality control (QC) metrics and their distributions across all samples.
+    id: "qc_metrics"
+    section_name: "QC metrics"
+    description: |
+      This table summarizes key QC metrics across all samples.
+    plot_type: "table"
+    pconfig:
+      id: "qc_metrics_table"
