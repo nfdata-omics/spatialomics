@@ -96,14 +96,13 @@ sp:
     fn: "qc_distributions.html"
 
 custom_data:
-
   spaceranger_metrics_mapping:
     parent_id: spaceranger_metrics
     parent_name: "Space Ranger metrics"
     parent_description: |
-        This table summarizes key metrics from the Space Ranger analysis across all samples.
-        It includes information such as the number of reads, the percentage of reads mapped to the probe set,
-        and other relevant statistics that can help assess the quality of the spatial transcriptomics data.
+      This table summarizes key metrics from the Space Ranger analysis across all samples.
+      It includes information such as the number of reads, the percentage of reads mapped to the probe set,
+      and other relevant statistics that can help assess the quality of the spatial transcriptomics data.
     id: "spaceranger_metrics_mapping"
     section_name: "Mapping"
     description: |
@@ -111,20 +110,20 @@ custom_data:
     plot_type: "table"
     headers:
       "Reads Mapped to Probe Set":
-          title: "Reads Mapped to Probe Set"
-          description: "Fraction of reads that mapped with MAPQ>0 to the probe set."
+        title: "Reads Mapped to Probe Set"
+        description: "Fraction of reads that mapped with MAPQ>0 to the probe set."
       "Reads Mapped Confidently to Probe Set":
-          title: "Reads Mapped Confidently to Probe Set"
-          description: "Fraction of reads that mapped with MAPQ=255 to one unique probe in the probe set."
+        title: "Reads Mapped Confidently to Probe Set"
+        description: "Fraction of reads that mapped with MAPQ=255 to one unique probe in the probe set."
       "Reads Mapped Confidently to the Filtered Probe Set":
-          title: "Reads Mapped Confidently to the Filtered Probe Set"
-          description: "Fraction of reads that mapped with MAPQ=255 to one unique probe in the filtered probe set. These reads are considered for UMI counting."
+        title: "Reads Mapped Confidently to the Filtered Probe Set"
+        description: "Fraction of reads that mapped with MAPQ=255 to one unique probe in the filtered probe set. These reads are considered for UMI counting."
       "Reads Half-Mapped to Probe Set":
-          title: "Reads Half-Mapped to Probe Set"
-          description: "Fraction of reads that mapped to unpaired ligation products."
+        title: "Reads Half-Mapped to Probe Set"
+        description: "Fraction of reads that mapped to unpaired ligation products."
       "Reads Split-Mapped to Probe Set":
-          title: "Reads Split-Mapped to Probe Set"
-          description: "Fraction of reads that mapped to mispaired ligation products."
+        title: "Reads Split-Mapped to Probe Set"
+        description: "Fraction of reads that mapped to mispaired ligation products."
 
   spaceranger_metrics_sequencing:
     parent_id: spaceranger_metrics
