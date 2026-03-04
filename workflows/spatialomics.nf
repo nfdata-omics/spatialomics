@@ -11,6 +11,7 @@ include { SPACERANGER_TO_ZARR         } from '../modules/local/spaceranger_to_za
 include { TAR                         } from '../modules/nf-core/tar/main'
 include { SPATIAL_QUALITY_CONTROL     } from '../modules/local/spatial_quality_control/main'
 include { COLLECT_QC                  } from '../modules/local/collect_qc/main'
+include { CELLPOSE_SEGMENTATION       } from '../modules/local/cellpose_segmentation/main'
 
 include { PREPARE_REF            } from '../subworkflows/local/prepare_ref'
 include { PREPARE_FASTQ          } from '../subworkflows/local/prepare_fastq'
@@ -129,6 +130,18 @@ workflow SPATIALOMICS {
     ch_multiqc_files = ch_multiqc_files.mix(COLLECT_QC.out.metrics)
     ch_multiqc_files = ch_multiqc_files.mix(COLLECT_QC.out.distributions)
     ch_multiqc_files = ch_multiqc_files.mix(SPATIAL_QUALITY_CONTROL.out.mqc_plot.collect{ _meta, path -> path })
+
+    //
+    // MODULE: Cell segmentation with Cellpose
+    //
+    ch_reads
+        .map { meta, _fastq -> [meta, meta.image] }
+        .set { ch_cellpose_input }
+
+    CELLPOSE_SEGMENTATION (
+        ch_cellpose_input
+    )
+    ch_versions = ch_versions.mix(CELLPOSE_SEGMENTATION.out.versions.first())
 
     //
     // Collate and save software versions
