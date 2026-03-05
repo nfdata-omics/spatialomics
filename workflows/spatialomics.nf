@@ -135,7 +135,7 @@ workflow SPATIALOMICS {
     // MODULE: Cell segmentation with Cellpose
     //
     ch_reads.map { meta, _fastq -> [meta, meta.image] }
-        .mix { ch_spaceranger_outs.map { meta, _out -> [meta, meta.image] } }
+        .mix ( ch_spaceranger_outs.map { meta, _out -> [meta, meta.image] } )
         .set { ch_cellpose_input }
 
     CELLPOSE_SEGMENTATION (
