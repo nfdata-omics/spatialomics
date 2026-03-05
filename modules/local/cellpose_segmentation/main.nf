@@ -1,6 +1,6 @@
 process CELLPOSE_SEGMENTATION {
     tag "$meta.id"
-    label 'process_medium', 'process_gpu'
+    label 'process_medium', 'process_gpu', 'process_high_memory'
 
     container 'docker.io/nfdata/cellpose-cuda:v4.0.8-torch2.10.0-cuda12.1.1'
 
