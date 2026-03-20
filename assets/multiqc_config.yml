@@ -6,6 +6,16 @@ report_section_order:
     order: 5000
   spaceranger_metrics:
     order: 4000
+  spaceranger_metrics_mapping:
+    order: 4000
+  spaceranger_metrics_sequencing:
+    after: spaceranger_metrics_mapping
+  spaceranger_metrics_2um:
+    after: spaceranger_metrics_sequencing
+  spaceranger_metrics_8um:
+    after: spaceranger_metrics_2um
+  spaceranger_metrics_16um:
+    after: spaceranger_metrics_8um
   qc_section:
     order: 3000
   "nfdata-omics-spatialomics-methods-description":
@@ -25,29 +35,252 @@ run_modules:
   - fastqc
   - spaceranger
 
+# Remove these sections from the report
+remove_sections:
+  - fastqc_per_base_sequence_content
+  - fastqc_per_sequence_gc_content
+  - fastqc_sequence_duplication_levels
+  - fastqc_overrepresented_sequences
+  - fastqc_top_overrepresented_sequences
+  - fastqc_status_checks
+
+# Customize the columns shown in the general stats table
+table_columns_visible:
+  FastQC:
+    percent_duplicates: false
+    percent_gc: false
+    avg_sequence_length: true
+    median_sequence_length: true
+    percent_fails: false
+    total_sequences: true
+
+# # Customize the columns order in the general stats table
+table_columns_placement:
+  "Custom content: SpaceRanger":
+    "Number of Bins Under Tissue 8 µm": 1100
+    "Mean Reads Under Tissue per Bin 8 µm": 1200
+    "Mean UMIs Under Tissue per Bin 8 µm": 1300
+    "Total Genes Detected Under Tissue 8 µm": 1400
+
+# Grouping R1 and R2 in the same table entry
+table_sample_merge:
+  "R1": "_1"
+  "R2": "_2"
+
 # Customize file name patterns
 sp:
   spaceranger:
     fn: "*web_summary.html"
     contents: None
-  spaceranger_metrics:
+  spaceranger_metrics_mapping:
     fn: "spaceranger_metrics.csv"
+    shared: true
+  spaceranger_metrics_sequencing:
+    fn: "spaceranger_metrics.csv"
+    shared: true
+  spaceranger_metrics_2um:
+    fn: "spaceranger_metrics.csv"
+    shared: true
+  spaceranger_metrics_8um:
+    fn: "spaceranger_metrics.csv"
+    shared: true
+  spaceranger_metrics_16um:
+    fn: "spaceranger_metrics.csv"
+    shared: true
+  spaceranger_general_stats:
+    fn: "spaceranger_metrics.csv"
+    shared: true
   qc_metrics:
     fn: "qc_metrics.csv"
   qc_distributions:
     fn: "qc_distributions.html"
 
 custom_data:
-  spaceranger_metrics:
-    id: "spaceranger_metrics"
-    section_name: "Space Ranger metrics"
-    description: |
+  spaceranger_metrics_mapping:
+    parent_id: spaceranger_metrics
+    parent_name: "Space Ranger metrics"
+    parent_description: |
       This table summarizes key metrics from the Space Ranger analysis across all samples.
       It includes information such as the number of reads, the percentage of reads mapped to the probe set,
       and other relevant statistics that can help assess the quality of the spatial transcriptomics data.
+    id: "spaceranger_metrics_mapping"
+    section_name: "Mapping"
+    description: |
+      This table summarizes key mapping metrics from the Space Ranger analysis across all samples.
     plot_type: "table"
+    headers:
+      "Reads Mapped to Probe Set":
+        title: "Reads Mapped to Probe Set"
+        description: "Fraction of reads that mapped with MAPQ>0 to the probe set."
+      "Reads Mapped Confidently to Probe Set":
+        title: "Reads Mapped Confidently to Probe Set"
+        description: "Fraction of reads that mapped with MAPQ=255 to one unique probe in the probe set."
+      "Reads Mapped Confidently to the Filtered Probe Set":
+        title: "Reads Mapped Confidently to the Filtered Probe Set"
+        description: "Fraction of reads that mapped with MAPQ=255 to one unique probe in the filtered probe set. These reads are considered for UMI counting."
+      "Reads Half-Mapped to Probe Set":
+        title: "Reads Half-Mapped to Probe Set"
+        description: "Fraction of reads that mapped to unpaired ligation products."
+      "Reads Split-Mapped to Probe Set":
+        title: "Reads Split-Mapped to Probe Set"
+        description: "Fraction of reads that mapped to mispaired ligation products."
+
+  spaceranger_metrics_sequencing:
+    parent_id: spaceranger_metrics
+    parent_name: "Space Ranger metrics"
+    parent_description: |
+      This table summarizes key metrics from the Space Ranger analysis across all samples.
+      It includes information such as the number of reads, barcode/UMI quality, sequencing quality,
+      and tissue-associated sequencing statistics.
+    id: "spaceranger_metrics_sequencing"
+    section_name: "Sequencing"
+    description: |
+      This table summarizes key sequencing metrics from the Space Ranger analysis across all samples.
+    plot_type: "table"
+    headers:
+      "Number of Reads":
+        title: "Number of Reads"
+        description: "Total number of read pairs that were assigned to this library in demultiplexing."
+      "Valid Barcodes":
+        title: "Valid Barcodes"
+        description: "Fraction of reads with barcodes that match the whitelist after barcode correction."
+      "Valid UMIs":
+        title: "Valid UMIs"
+        description: "Fraction of reads with valid UMIs; i.e. UMI sequences that do not contain Ns and that are not homopolymers."
+      "Sequencing Saturation":
+        title: "Sequencing Saturation"
+        description: "The fraction of reads originating from an already-observed UMI. This is a function of library complexity and sequencing depth. More specifically, this is the fraction of confidently mapped, valid square-barcode, valid UMI reads that had a non-unique square-barcode/UMI/gene combination."
+      "Q30 Bases in Barcode":
+        title: "Q30 Bases in Barcode"
+        description: "Fraction of cell barcode bases with Q-score >= 30, excluding very low quality/no-call (Q <= 2) bases from the denominator."
+      "Q30 Bases in Probe Read":
+        title: "Q30 Bases in Probe Read"
+        description: "Fraction of RNA read bases with Q-score >= 30, excluding very low quality/no-call (Q <= 2) bases from the denominator. This is Read 2 for the Visium v1 chemistry."
+      "Q30 Bases in UMI":
+        title: "Q30 Bases in UMI"
+        description: "Fraction of UMI bases with Q-score >= 30, excluding very low quality/no-call (Q <= 2) bases from the denominator."
+      "Fraction of Bins Under Tissue 8 µm":
+        title: "Fraction of Bins Under Tissue 8 µm"
+        description: "Fraction of 8 µm bins covered by tissue."
+      "UMIs per sq mm of Tissue":
+        title: "UMIs per sq mm of Tissue"
+        description: "Number of UMIs from the Gene Expression library observed per unit area of tissue."
+      "Reads per sq mm of Tissue":
+        title: "Reads per sq mm of Tissue"
+        description: "Number of reads from the Gene Expression library observed per unit area of tissue."
+      "Fraction Reads in Squares Under Tissue":
+        title: "Fraction Reads in Squares Under Tissue"
+        description: "The fraction of valid-barcode, confidently-mapped-to-probe-set reads with tissue-associated barcodes."
+
+  spaceranger_metrics_2um:
+    parent_id: spaceranger_metrics
+    parent_name: "Space Ranger metrics"
+    parent_description: |
+      This section summarizes spatial metrics from Space Ranger outputs.
+    id: "spaceranger_metrics_2um"
+    section_name: "2 µm"
+    description: |
+      Metrics computed at 2 µm resolution.
+    plot_type: "table"
+    headers:
+      "Number of Squares Under Tissue 2 µm":
+        title: "Number of Squares Under Tissue 2 µm"
+      "Mean Reads Under Tissue per Square 2 µm":
+        title: "Mean Reads Under Tissue per Square 2 µm"
+      "Fraction of Squares Under Tissue 2 µm":
+        title: "Fraction of Squares Under Tissue 2 µm"
+      "Mean Genes Under Tissue per Square 2 µm":
+        title: "Mean Genes Under Tissue per Square 2 µm"
+      "Mean UMIs Under Tissue per Square 2 µm":
+        title: "Mean UMIs Under Tissue per Square 2 µm"
+      "Total Genes Detected Under Tissue 2 µm":
+        title: "Total Genes Detected Under Tissue 2 µm"
+      "UMIs per sq mm of Tissue":
+        title: "UMIs per sq mm of Tissue"
+      "Reads per sq mm of Tissue":
+        title: "Reads per sq mm of Tissue"
+
+  spaceranger_metrics_8um:
+    parent_id: spaceranger_metrics
+    parent_name: "Space Ranger metrics"
+    parent_description: |
+      This section summarizes spatial metrics from Space Ranger outputs.
+    id: "spaceranger_metrics_8um"
+    section_name: "8 µm"
+    description: |
+      Metrics computed at 8 µm resolution.
+    plot_type: "table"
+    headers:
+      "Number of Bins Under Tissue 8 µm":
+        title: "Number of Bins Under Tissue 8 µm"
+      "Mean Reads Under Tissue per Bin 8 µm":
+        title: "Mean Reads Under Tissue per Bin 8 µm"
+      "Fraction of Bins Under Tissue 8 µm":
+        title: "Fraction of Bins Under Tissue 8 µm"
+      "Mean Genes Under Tissue per Bin 8 µm":
+        title: "Mean Genes Under Tissue per Bin 8 µm"
+      "Mean UMIs Under Tissue per Bin 8 µm":
+        title: "Mean UMIs Under Tissue per Bin 8 µm"
+      "Total Genes Detected Under Tissue 8 µm":
+        title: "Total Genes Detected Under Tissue 8 µm"
+      "UMIs per sq mm of Tissue":
+        title: "UMIs per sq mm of Tissue"
+      "Reads per sq mm of Tissue":
+        title: "Reads per sq mm of Tissue"
+
+  spaceranger_metrics_16um:
+    parent_id: spaceranger_metrics
+    parent_name: "Space Ranger metrics"
+    parent_description: |
+      This section summarizes spatial metrics from Space Ranger outputs.
+    id: "spaceranger_metrics_16um"
+    section_name: "16 µm"
+    description: |
+      Metrics computed at 16 µm resolution.
+    plot_type: "table"
+    headers:
+      "Number of Bins Under Tissue 16 µm":
+        title: "Number of Bins Under Tissue 16 µm"
+      "Mean Reads Under Tissue per Bin 16 µm":
+        title: "Mean Reads Under Tissue per Bin 16 µm"
+      "Fraction of Bins Under Tissue 16 µm":
+        title: "Fraction of Bins Under Tissue 16 µm"
+      "Mean Genes Under Tissue per Bin 16 µm":
+        title: "Mean Genes Under Tissue per Bin 16 µm"
+      "Mean UMIs Under Tissue per Bin 16 µm":
+        title: "Mean UMIs Under Tissue per Bin 16 µm"
+      "Total Genes Detected Under Tissue 16 µm":
+        title: "Total Genes Detected Under Tissue 16 µm"
+      "UMIs per sq mm of Tissue":
+        title: "UMIs per sq mm of Tissue"
+      "Reads per sq mm of Tissue":
+        title: "Reads per sq mm of Tissue"
+
+  spaceranger_general_stats:
+    plot_type: "generalstats"
+    headers:
+      - "Number of Bins Under Tissue 8 µm":
+          namespace: "SpaceRanger"
+          title: "Number of bins"
+          description: "Number of 8 µm binned squares under tissue."
+      - "Mean Reads Under Tissue per Bin 8 µm":
+          namespace: "SpaceRanger"
+          title: "Mean Reads"
+          description: "The mean number of reads under tissue per bin of 8 µm."
+      - "Mean UMIs Under Tissue per Bin 8 µm":
+          namespace: "SpaceRanger"
+          title: "Mean UMIs"
+          description: "The mean number of UMIs under tissue per bin of 8 µm."
+      - "Total Genes Detected Under Tissue 8 µm":
+          namespace: "SpaceRanger"
+          title: "Total Genes"
+          description: "The total number of genes detected in 8 µm resolution."
     pconfig:
-      id: "spaceranger_metrics_table"
+      - "Number of Bins Under Tissue 8 µm"
+      - "Mean Reads Under Tissue per Bin 8 µm"
+      - "Mean UMIs Under Tissue per Bin 8 µm"
+      - "Total Genes Detected Under Tissue 8 µm"
+
   qc_distributions:
     parent_id: qc_section
     parent_name: "Quality Control"
@@ -60,6 +293,7 @@ custom_data:
     plot_type: "html"
     pconfig:
       id: "qc_distributions_html"
+
   qc_metrics:
     parent_id: qc_section
     parent_name: "Quality Control"
