@@ -10,10 +10,10 @@ workflow PREPARE_FASTQ {
 
     main:
 
-    ch_versions = Channel.empty()
-    ch_reads    = Channel.empty()
-    ch_multiqc_files = Channel.empty()
-    ch_lint_log = Channel.empty()
+    ch_versions = channel.empty()
+    ch_reads    = channel.empty()
+    ch_multiqc_files = channel.empty()
+    ch_lint_log = channel.empty()
 
     // divide samplesheet into samples with single and multiple fastqs
     ch_samplesheet
@@ -49,7 +49,7 @@ workflow PREPARE_FASTQ {
     FASTQC (
         ch_reads
     )
-    ch_multiqc_files = ch_multiqc_files.mix(FASTQC.out.zip.collect{it[1]})
+    ch_multiqc_files = ch_multiqc_files.mix(FASTQC.out.zip.collect{ _meta, file -> file })
 
     emit:
     reads           = ch_reads                // channel: [ val(meta), path(reads) ]
