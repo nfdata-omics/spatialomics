@@ -62,7 +62,11 @@ workflow NFDATAOMICS_SPATIALOMICS {
         ch_gtf,
         ch_gff,
         ch_spaceranger_index,
-        ch_probeset
+        ch_probeset,
+        params.multiqc_config,
+        params.multiqc_logo,
+        params.multiqc_methods_description,
+        params.outdir,
     )
     emit:
     multiqc_report = SPATIALOMICS.out.multiqc_report // channel: /path/to/multiqc_report.html
@@ -108,7 +112,6 @@ workflow {
         params.plaintext_email,
         params.outdir,
         params.monochrome_logs,
-        params.hook_url,
         NFDATAOMICS_SPATIALOMICS.out.multiqc_report
     )
 }
