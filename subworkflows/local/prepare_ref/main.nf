@@ -56,7 +56,6 @@ workflow PREPARE_REF {
             if (params.gtf.endsWith('.gz')) {
                 GUNZIP_GTF( gtf.map { file -> [ [:], file ] } )
                 ch_gtf      = GUNZIP_GTF.out.gunzip.map { _meta, file -> file }
-                ch_versions = ch_versions.mix(GUNZIP_GTF.out.versions)
             } else {
                 ch_gtf = gtf
             }
@@ -64,7 +63,6 @@ workflow PREPARE_REF {
             if (params.gff.endsWith('.gz')) {
                 GUNZIP_GFF( gff.map { file -> [ [:], file ] } )
                 ch_gff      = GUNZIP_GFF.out.gunzip
-                ch_versions = ch_versions.mix(GUNZIP_GFF.out.versions)
             } else {
                 ch_gff = gff.map { file -> [ [:], file ] }
             }
@@ -77,7 +75,6 @@ workflow PREPARE_REF {
         if (params.fasta.endsWith('.gz')) {
             GUNZIP_FASTA( fasta.map { file -> [ [:], file ] } )
             ch_fasta    = GUNZIP_FASTA.out.gunzip.map { _meta, file -> file }
-            ch_versions = ch_versions.mix(GUNZIP_FASTA.out.versions)
         } else {
             ch_fasta = fasta
         }
