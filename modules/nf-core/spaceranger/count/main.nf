@@ -26,13 +26,13 @@ process SPACERANGER_COUNT {
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
     // Add flags for optional inputs on demand.
-    def probeset = probeset ? "--probe-set=\"${probeset}\"" : ""
-    def alignment = alignment ? "--loupe-alignment=\"${alignment}\"" : ""
-    def slidefile = slidefile ? "--slidefile=\"${slidefile}\"" : ""
-    def image = image ? "--image=\"${image}\"" : ""
-    def cytaimage = cytaimage ? "--cytaimage=\"${cytaimage}\"" : ""
-    def darkimage = darkimage ? "--darkimage=\"${darkimage}\"" : ""
-    def colorizedimage = colorizedimage ? "--colorizedimage=\"${colorizedimage}\"" : ""
+    def probeset_arg = probeset ? "--probe-set=\"${probeset}\"" : ""
+    def alignment_arg = alignment ? "--loupe-alignment=\"${alignment}\"" : ""
+    def slidefile_arg = slidefile ? "--slidefile=\"${slidefile}\"" : ""
+    def image_arg = image ? "--image=\"${image}\"" : ""
+    def cytaimage_arg = cytaimage ? "--cytaimage=\"${cytaimage}\"" : ""
+    def darkimage_arg = darkimage ? "--darkimage=\"${darkimage}\"" : ""
+    def colorizedimage_arg = colorizedimage ? "--colorizedimage=\"${colorizedimage}\"" : ""
     if (slide.matches("visium-(.*)") && area == "" && slidefile == "") {
         slide_and_area = "--unknown-slide=\"${slide}\""
     } else {
@@ -46,11 +46,11 @@ process SPACERANGER_COUNT {
         --transcriptome="${reference}" \\
         --localcores=${task.cpus} \\
         --localmem=${task.memory.toGiga()} \\
-        $image $cytaimage $darkimage $colorizedimage \\
+        $image_arg $cytaimage_arg $darkimage_arg $colorizedimage_arg \\
         $slide_and_area \\
-        $probeset \\
-        $alignment \\
-        $slidefile \\
+        $probeset_arg \\
+        $alignment_arg \\
+        $slidefile_arg \\
         $args
     mv ${prefix}/outs outs
     mv outs/web_summary.html ${prefix}_web_summary.html

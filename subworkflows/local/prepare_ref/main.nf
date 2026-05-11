@@ -29,12 +29,12 @@ workflow PREPARE_REF {
         "Must provide a reference name (--reference_name) when building a new spaceranger index!"
 
     // Versions collector
-    ch_versions = Channel.empty()
+    ch_versions = channel.empty()
 
     if (params.spaceranger_index) {
 
-        ch_fasta = Channel.empty()
-        ch_gtf   = Channel.empty()
+        ch_fasta = channel.empty()
+        ch_gtf   = channel.empty()
 
         // Define spaceranger index channel from the user-provided one
         if (params.spaceranger_index ==~ /.*\.tar\.gz$/) {
@@ -42,7 +42,7 @@ workflow PREPARE_REF {
                 ["id": params.spaceranger_index.tokenize('/').last().replaceAll(/\.(tar)(\.gz)?$/, '')],
                 spaceranger_index
             ])
-            ch_spaceranger_index = UNTAR_SPACERANGER_REF.out.untar.map{ it[1] }
+            ch_spaceranger_index = UNTAR_SPACERANGER_REF.out.untar.map{ _meta, file -> file }
             ch_versions = ch_versions.mix(UNTAR_SPACERANGER_REF.out.versions)
         } else {
             ch_spaceranger_index = spaceranger_index
@@ -51,33 +51,29 @@ workflow PREPARE_REF {
     } else {
 
         // Uncompress GTF or GFF, and convert GFF to GTF
-        ch_gtf = Channel.empty()
+        ch_gtf = channel.empty()
         if (params.gtf) {
             if (params.gtf.endsWith('.gz')) {
-                GUNZIP_GTF( gtf.map { [ [:], it ] } )
-                ch_gtf      = GUNZIP_GTF.out.gunzip.map { it[1] }
-                ch_versions = ch_versions.mix(GUNZIP_GTF.out.versions)
+                GUNZIP_GTF( gtf.map { file -> [ [:], file ] } )
+                ch_gtf      = GUNZIP_GTF.out.gunzip.map { _meta, file -> file }
             } else {
                 ch_gtf = gtf
             }
         } else if (params.gff) {
             if (params.gff.endsWith('.gz')) {
-                GUNZIP_GFF( gff.map { [ [:], it ] } )
+                GUNZIP_GFF( gff.map { file -> [ [:], file ] } )
                 ch_gff      = GUNZIP_GFF.out.gunzip
-                ch_versions = ch_versions.mix(GUNZIP_GFF.out.versions)
             } else {
-                ch_gff = gff.map { [ [:], it ] }
+                ch_gff = gff.map { file -> [ [:], file ] }
             }
-            ch_gtf      = GFFREAD(ch_gff, []).gtf.map { it[1] }
-            ch_versions = ch_versions.mix(GFFREAD.out.versions)
+            ch_gtf      = GFFREAD(ch_gff, []).gtf.map { _meta, file -> file }
         }
 
         // Uncompress FASTA if needed
-        ch_fasta = Channel.of([])
+        ch_fasta = channel.of([])
         if (params.fasta.endsWith('.gz')) {
-            GUNZIP_FASTA( fasta.map { [ [:], it ] } )
-            ch_fasta    = GUNZIP_FASTA.out.gunzip.map { it[1] }
-            ch_versions = ch_versions.mix(GUNZIP_FASTA.out.versions)
+            GUNZIP_FASTA( fasta.map { file -> [ [:], file ] } )
+            ch_fasta    = GUNZIP_FASTA.out.gunzip.map { _meta, file -> file }
         } else {
             ch_fasta = fasta
         }

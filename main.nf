@@ -46,11 +46,11 @@ workflow NFDATAOMICS_SPATIALOMICS {
     main:
 
     // Define channels for reference files
-    ch_fasta              = params.fasta             ? Channel.value(file(params.fasta, checkIfExists: true))             : Channel.empty()
-    ch_gtf                = params.gtf               ? Channel.value(file(params.gtf, checkIfExists: true))               : Channel.empty()
-    ch_gff                = params.gff               ? Channel.value(file(params.gff, checkIfExists: true))               : Channel.empty()
-    ch_spaceranger_index  = params.spaceranger_index ? file(params.spaceranger_index, checkIfExists: true) : Channel.empty()
-    ch_probeset           = params.probeset          ? Channel.value(file(params.probeset, checkIfExists: true))          : Channel.empty()
+    ch_fasta              = params.fasta             ? channel.value(file(params.fasta, checkIfExists: true))             : channel.empty()
+    ch_gtf                = params.gtf               ? channel.value(file(params.gtf, checkIfExists: true))               : channel.empty()
+    ch_gff                = params.gff               ? channel.value(file(params.gff, checkIfExists: true))               : channel.empty()
+    ch_spaceranger_index  = params.spaceranger_index ? file(params.spaceranger_index, checkIfExists: true) : channel.empty()
+    ch_probeset           = params.probeset          ? channel.value(file(params.probeset, checkIfExists: true))          : channel.empty()
 
     //
     // WORKFLOW: Run pipeline
@@ -62,7 +62,11 @@ workflow NFDATAOMICS_SPATIALOMICS {
         ch_gtf,
         ch_gff,
         ch_spaceranger_index,
-        ch_probeset
+        ch_probeset,
+        params.multiqc_config,
+        params.multiqc_logo,
+        params.multiqc_methods_description,
+        params.outdir,
     )
     emit:
     multiqc_report = SPATIALOMICS.out.multiqc_report // channel: /path/to/multiqc_report.html
@@ -108,7 +112,6 @@ workflow {
         params.plaintext_email,
         params.outdir,
         params.monochrome_logs,
-        params.hook_url,
         NFDATAOMICS_SPATIALOMICS.out.multiqc_report
     )
 }
