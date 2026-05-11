@@ -67,7 +67,6 @@ workflow PREPARE_REF {
                 ch_gff = gff.map { file -> [ [:], file ] }
             }
             ch_gtf      = GFFREAD(ch_gff, []).gtf.map { _meta, file -> file }
-            ch_versions = ch_versions.mix(GFFREAD.out.versions)
         }
 
         // Uncompress FASTA if needed
