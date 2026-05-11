@@ -50,8 +50,6 @@ workflow PREPARE_FASTQ {
         ch_reads
     )
     ch_multiqc_files = ch_multiqc_files.mix(FASTQC.out.zip.collect{it[1]})
-    ch_versions = ch_versions.mix(FASTQC.out.versions.first())
-
 
     emit:
     reads           = ch_reads                // channel: [ val(meta), path(reads) ]
