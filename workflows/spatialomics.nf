@@ -137,14 +137,18 @@ workflow SPATIALOMICS {
     ch_multiqc_files = ch_multiqc_files.mix(COLLECT_QC.out.distributions)
     ch_multiqc_files = ch_multiqc_files.mix(SPATIAL_QUALITY_CONTROL.out.mqc_plot.collect{ _meta, path -> path })
 
-
-    ch_reads.map { meta, _fastq -> [["id": meta.id], meta.image] }
-        .mix ( ch_spaceranger_outs.map { meta, _out -> [["id": meta.id], meta.image] } )
-        .set { ch_microscopy_images }
-
-    ch_reads.map { meta, _fastq -> [["id": meta.id], meta.crop_areas ?: ""] }
-        .mix ( ch_spaceranger_outs.map { meta, _out -> [["id": meta.id], meta.crop_areas ?: ""] } )
-        .set { ch_crop_areas }
+    // Prepare microscopy images and crop areas for downstream processing, unless segmentation is being skipped
+    if ( params.skip_segmentation ) {
+        ch_microscopy_images = channel.empty()
+        ch_crop_areas = channel.empty()
+    } else {
+        ch_reads.map { meta, _fastq -> [["id": meta.id], meta.image] }
+            .mix ( ch_spaceranger_outs.map { meta, _out -> [["id": meta.id], meta.image] } )
+            .set { ch_microscopy_images }
+        ch_reads.map { meta, _fastq -> [["id": meta.id], meta.crop_areas ] }
+            .mix ( ch_spaceranger_outs.map { meta, _out -> [["id": meta.id], meta.crop_areas ] } )
+            .set { ch_crop_areas }
+    }
 
     //
     // MODULE: Convert microscopy images to memmappable OME-TIFF format
