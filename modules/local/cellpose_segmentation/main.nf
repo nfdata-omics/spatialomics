@@ -8,7 +8,7 @@ process CELLPOSE_SEGMENTATION {
     tuple val(meta), path(input_image)
 
     output:
-    tuple val(meta), path("*_mask.tif")
+    tuple val(meta), path("*_mask.tif"), emit: mask
     path "versions.yml",   emit: versions
 
     when:

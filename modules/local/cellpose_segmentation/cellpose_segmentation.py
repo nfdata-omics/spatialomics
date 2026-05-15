@@ -239,7 +239,14 @@ def image_segmenter(image_path, output_path, dowsample_factor=2, tile_size=1024,
         overlap=overlap
     )
 
-    tifffile.imwrite(output_path, stitched)
+    tifffile.imwrite(
+        output_path,
+        stitched,
+        metadata={
+            "axes": "YX",
+            "DownsampleFactor": dowsample_factor,
+        },
+    )
 
 
 def versions_yaml(process_name, list_of_libs=None):
