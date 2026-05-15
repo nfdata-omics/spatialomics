@@ -14,7 +14,9 @@
                     "torchvision": "0.25.0"
                 },
                 "COLLECT_QC": {
+                    "numpy": "2.4.2",
                     "pandas": "3.0.1",
+                    "plotly": "6.5.2",
                     "python": "3.12.12"
                 },
                 "COLLECT_SPACERANGER_METRICS": {
@@ -458,6 +460,6 @@
             "nf-test": "0.9.3",
             "nextflow": "25.10.4"
         },
-        "timestamp": "2026-05-15T18:04:44.496874916"
+        "timestamp": "2026-05-15T19:31:18.534307966"
     }
 }
