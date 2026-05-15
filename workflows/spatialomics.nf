@@ -11,6 +11,9 @@ include { SPACERANGER_TO_ZARR         } from '../modules/local/spaceranger_to_za
 include { TAR                         } from '../modules/nf-core/tar/main'
 include { SPATIAL_QUALITY_CONTROL     } from '../modules/local/spatial_quality_control/main'
 include { COLLECT_QC                  } from '../modules/local/collect_qc/main'
+include { IMAGE_TO_TIFF               } from '../modules/local/image_to_tiff/main'
+include { CELLPOSE_SEGMENTATION       } from '../modules/local/cellpose_segmentation/main'
+include { SEGMENTATION_AND_MICROSCOPY_PLOTS } from '../modules/local/segmentation_and_microscopy_plots/main'
 
 include { PREPARE_REF            } from '../subworkflows/local/prepare_ref'
 include { PREPARE_FASTQ          } from '../subworkflows/local/prepare_fastq'
@@ -133,6 +136,48 @@ workflow SPATIALOMICS {
     ch_multiqc_files = ch_multiqc_files.mix(COLLECT_QC.out.metrics)
     ch_multiqc_files = ch_multiqc_files.mix(COLLECT_QC.out.distributions)
     ch_multiqc_files = ch_multiqc_files.mix(SPATIAL_QUALITY_CONTROL.out.mqc_plot.collect{ _meta, path -> path })
+
+
+    ch_reads.map { meta, _fastq -> [["id": meta.id], meta.image] }
+        .mix ( ch_spaceranger_outs.map { meta, _out -> [["id": meta.id], meta.image] } )
+        .set { ch_microscopy_images }
+
+    ch_reads.map { meta, _fastq -> [["id": meta.id], meta.crop_areas ?: ""] }
+        .mix ( ch_spaceranger_outs.map { meta, _out -> [["id": meta.id], meta.crop_areas ?: ""] } )
+        .set { ch_crop_areas }
+
+    //
+    // MODULE: Convert microscopy images to memmappable OME-TIFF format
+    //
+    IMAGE_TO_TIFF(
+        ch_microscopy_images
+    )
+
+    //
+    // MODULE: Cell segmentation with Cellpose
+    //
+    CELLPOSE_SEGMENTATION (
+        IMAGE_TO_TIFF.out.tiff
+    )
+    ch_versions = ch_versions.mix(CELLPOSE_SEGMENTATION.out.versions.first())
+
+    SPACERANGER_TO_ZARR.out.zarr
+        .join(CELLPOSE_SEGMENTATION.out.mask)
+        .join(IMAGE_TO_TIFF.out.tiff)
+        .join(ch_crop_areas)
+        .set { ch_segmentation_and_microscopy_inputs }
+
+    //
+    // MODULE: Generate segmentation and microscopy plots
+    //
+    SEGMENTATION_AND_MICROSCOPY_PLOTS (
+        ch_segmentation_and_microscopy_inputs,
+        params.zarr_downsample_factor,
+        16,
+        2048
+    )
+    ch_multiqc_files = ch_multiqc_files.mix(SEGMENTATION_AND_MICROSCOPY_PLOTS.out.mqc_plots.collect{ _meta, paths -> paths })
+    ch_multiqc_files = ch_multiqc_files.mix(SEGMENTATION_AND_MICROSCOPY_PLOTS.out.segmentation_stats.collect{ _meta, paths -> paths })
 
     //
     // Collate and save software versions

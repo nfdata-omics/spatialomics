@@ -1,0 +1,108 @@
+name: segmentation_and_microscopy_plots
+description: Add segmentation and microscopy layers to a Visium HD SpatialData object and create registration plots
+keywords:
+  - spatialdata
+  - spatial transcriptomics
+  - visium hd
+  - segmentation
+  - microscopy
+  - multiqc
+tools:
+  - spatialdata:
+      description: |
+        SpatialData is a data framework for storing and manipulating spatial omics data.
+      homepage: https://spatialdata.scverse.org/
+      documentation: https://spatialdata.scverse.org/
+      licence: ["BSD-3-Clause"]
+  - spatialdata-plot:
+      description: |
+        spatialdata-plot provides plotting utilities for SpatialData objects.
+      homepage: https://spatialdata.scverse.org/projects/plot/
+      documentation: https://spatialdata.scverse.org/projects/plot/
+      licence: ["BSD-3-Clause"]
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information.
+          e.g. [ id:'NFG021_002' ]
+    - zarr_folder:
+        type: directory
+        description: Input Visium HD SpatialData zarr folder
+        pattern: "*.zarr"
+    - segmentation_mask:
+        type: file
+        description: Memmappable 2D TIFF segmentation mask
+        pattern: "*.tif"
+    - microscopy_image:
+        type: file
+        description: Memmappable 2D TIFF microscopy image
+        pattern: "*.tif"
+    - crop_areas:
+        type: string
+        description: Optional crop areas as x0:y0:x1:y1[;x0:y0:x1:y1] in sample coordinates
+  - zarr_downsample_factor:
+      type: number
+      description: Downsampling factor between TIFF image coordinates and the zarr coordinate system
+  - microscopy_downsample_factor:
+      type: integer
+      description: Downsampling factor used to create the downsampled microscopy layer
+  - chunk_size:
+      type: integer
+      description: Chunk size used for TIFF-backed dask arrays
+output:
+  zarr:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information.
+            e.g. [ id:'NFG021_002' ]
+      - "*_segmentation_microscopy.zarr":
+          type: directory
+          description: Optional SpatialData zarr containing added segmentation and microscopy layers
+          pattern: "*_segmentation_microscopy.zarr"
+  mqc_plots:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information.
+            e.g. [ id:'NFG021_002' ]
+      - "*_mqc.png":
+          type: file
+          description: MultiQC-compatible registration and segmentation PNG plots
+          pattern: "*_mqc.png"
+  segmentation_stats:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information.
+            e.g. [ id:'NFG021_002' ]
+      - "*_segmentation_stats.csv":
+          type: file
+          description: One-row segmentation statistics CSV for MultiQC aggregation
+          pattern: "*_segmentation_stats.csv"
+  versions_container:
+    - - ${task.process}:
+          type: string
+          description: The process the versions were collected from
+      - container:
+          type: string
+          description: The runtime environment type
+      - docker.io/nfdata/spatialdata:v0.7.2:
+          type: string
+          description: The Docker image used by the module
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: The process the versions were collected from
+      - container:
+          type: string
+          description: The runtime environment type
+      - docker.io/nfdata/spatialdata:v0.7.2:
+          type: string
+          description: The Docker image used by the module
+containers:
+  docker:
+    linux/amd64:
+      name: docker.io/nfdata/spatialdata:v0.7.2

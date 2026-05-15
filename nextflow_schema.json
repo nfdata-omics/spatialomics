@@ -43,6 +43,22 @@
                 }
             }
         },
+        "analysis_options": {
+            "title": "Analysis options",
+            "type": "object",
+            "fa_icon": "fas fa-sliders-h",
+            "description": "Parameters controlling spatial data processing and visualization.",
+            "properties": {
+                "zarr_downsample_factor": {
+                    "type": "number",
+                    "default": 1,
+                    "exclusiveMinimum": 0,
+                    "description": "Downsampling factor between full-resolution TIFF image coordinates and the SpatialData zarr coordinate system.",
+                    "help_text": "Use this parameter when the coordinates stored in the SpatialData zarr are downsampled relative to the full-resolution microscopy and segmentation TIFF images.",
+                    "fa_icon": "fas fa-compress-arrows-alt"
+                }
+            }
+        },
         "reference_genome_options": {
             "title": "Reference genome options",
             "type": "object",
@@ -268,6 +284,9 @@
     "allOf": [
         {
             "$ref": "#/$defs/input_output_options"
+        },
+        {
+            "$ref": "#/$defs/analysis_options"
         },
         {
             "$ref": "#/$defs/reference_genome_options"

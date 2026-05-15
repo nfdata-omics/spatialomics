@@ -69,6 +69,11 @@
                 "exists": true,
                 "meta": ["slidefile"]
             },
+            "crop_areas": {
+                "type": "string",
+                "meta": ["crop_areas"],
+                "description": "Optional crop areas as x0:y0:x1:y1[;x0:y0:x1:y1] in sample coordinates"
+            },
             "spaceranger": {
                 "type": "string",
                 "format": "path",
