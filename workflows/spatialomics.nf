@@ -176,6 +176,8 @@ workflow SPATIALOMICS {
         16,
         2048
     )
+    ch_multiqc_files = ch_multiqc_files.mix(SEGMENTATION_AND_MICROSCOPY_PLOTS.out.mqc_plots.collect{ _meta, paths -> paths })
+    ch_multiqc_files = ch_multiqc_files.mix(SEGMENTATION_AND_MICROSCOPY_PLOTS.out.segmentation_stats.collect{ _meta, paths -> paths })
 
     //
     // Collate and save software versions
