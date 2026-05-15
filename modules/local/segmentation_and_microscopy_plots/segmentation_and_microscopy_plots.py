@@ -534,6 +534,7 @@ def save_crop_area_plot(
     )
 
     fig, axes = plt.subplots(1, 2, figsize=(14, 7))
+    fig.suptitle(sample_name)
 
     sdata.pl.render_images(
         microscopy_downsampled_key,
@@ -547,7 +548,7 @@ def save_crop_area_plot(
     ).pl.show(
         coordinate_systems=sample_name,
         ax=axes[0],
-        title="Full downsampled microscopy",
+        title="",
     )
 
     visium_crop.pl.render_images(
@@ -562,10 +563,13 @@ def save_crop_area_plot(
     ).pl.show(
         coordinate_systems=sample_name,
         ax=axes[1],
-        title="Downsampled microscopy, Visium area",
+        title="",
     )
 
-    fig.tight_layout()
+    for ax in axes:
+        ax.set_title("")
+
+    fig.tight_layout(rect=(0, 0, 1, 0.95))
     fig.savefig(output_path, dpi=200)
     plt.close(fig)
 
@@ -582,6 +586,7 @@ def save_segmentation_crop_panels(
     n_crops = len(crop_areas)
     fig_height = max(5, 4 * n_crops)
     fig, axes = plt.subplots(n_crops, 2, figsize=(12, fig_height), squeeze=False)
+    fig.suptitle(sample_name)
 
     for index, crop_area in enumerate(crop_areas):
         min_coordinate, max_coordinate = crop_area.bounds_for_query
@@ -622,7 +627,7 @@ def save_segmentation_crop_panels(
             title=f"{crop_label} - segmentation",
         )
 
-    fig.tight_layout()
+    fig.tight_layout(rect=(0, 0, 1, 0.96))
     fig.savefig(output_path, dpi=300)
     plt.close(fig)
 
