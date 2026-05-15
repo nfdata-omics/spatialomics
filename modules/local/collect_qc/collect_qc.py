@@ -5,8 +5,10 @@ import argparse
 import sys
 import yaml
 
+import numpy as np
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 import plotly.io as pio
 pio.templates.default = "plotly_white"
 
@@ -75,11 +77,115 @@ def plot_qc_distributions(annotated_obs_files, output_file):
 
         for i, metric in enumerate(metrics):
 
-            fig = px.violin(combined, y=metric, color="sample", box=True, title=metric)
+            fig = qc_histogram_figure(combined, metric)
             if i == 0:
                 f.write(fig.to_html(full_html=False, include_plotlyjs="cdn"))
             else:
                 f.write(fig.to_html(full_html=False, include_plotlyjs=False))
+
+        f.write("</body></html>\n")
+
+
+def nice_bin_width(raw_width, minimum_width=1.0):
+    """Round a raw bin width up to a readable 1/2/5 x 10^n width."""
+    raw_width = max(float(raw_width), minimum_width)
+    exponent = np.floor(np.log10(raw_width))
+    scale = 10**exponent
+    fraction = raw_width / scale
+
+    if fraction <= 1:
+        nice_fraction = 1
+    elif fraction <= 2:
+        nice_fraction = 2
+    elif fraction <= 5:
+        nice_fraction = 5
+    else:
+        nice_fraction = 10
+
+    return nice_fraction * scale
+
+
+def histogram_edges(values, max_bins=100, minimum_bin_width=1.0):
+    """Build shared histogram edges with a capped bin count and minimum bin width."""
+    values = pd.to_numeric(pd.Series(values), errors="coerce").dropna().to_numpy(dtype=float)
+    if values.size == 0:
+        return None
+
+    min_value = float(values.min())
+    max_value = float(values.max())
+    if min_value == max_value:
+        half_width = minimum_bin_width / 2
+        return np.array([min_value - half_width, min_value + half_width], dtype=float)
+
+    target_bins = min(max_bins, max(10, int(np.sqrt(values.size))))
+    bin_width = nice_bin_width((max_value - min_value) / target_bins, minimum_bin_width)
+
+    start = np.floor(min_value / bin_width) * bin_width
+    stop = np.ceil(max_value / bin_width) * bin_width
+    edges = np.arange(start, stop + bin_width, bin_width, dtype=float)
+
+    if edges.size > max_bins + 1:
+        bin_width = nice_bin_width((max_value - min_value) / max_bins, minimum_bin_width)
+        start = np.floor(min_value / bin_width) * bin_width
+        stop = np.ceil(max_value / bin_width) * bin_width
+        edges = np.arange(start, stop + bin_width, bin_width, dtype=float)
+
+    if edges.size < 2:
+        edges = np.array([min_value - minimum_bin_width / 2, min_value + minimum_bin_width / 2])
+
+    return edges
+
+
+def qc_histogram_figure(combined, metric):
+    """Create an interactive normalized histogram without embedding raw observations."""
+    fig = go.Figure()
+    palette = px.colors.qualitative.Plotly
+    edges = histogram_edges(combined[metric])
+    if edges is None:
+        fig.update_layout(title=metric)
+        return fig
+
+    centers = (edges[:-1] + edges[1:]) / 2
+    widths = edges[1:] - edges[:-1]
+
+    for index, (sample, sample_df) in enumerate(combined.groupby("sample", sort=False)):
+        values = pd.to_numeric(sample_df[metric], errors="coerce").dropna().to_numpy(dtype=float)
+        if values.size == 0:
+            continue
+
+        counts, _ = np.histogram(values, bins=edges)
+        fractions = counts / values.size
+        customdata = np.column_stack((edges[:-1], edges[1:], counts, fractions))
+        color = palette[index % len(palette)]
+        fig.add_trace(
+            go.Bar(
+                x=centers,
+                y=fractions,
+                width=widths,
+                name=str(sample),
+                marker={"color": color, "line": {"width": 0}},
+                opacity=0.4,
+                customdata=customdata,
+                hovertemplate=(
+                    "sample=%{fullData.name}<br>"
+                    f"{metric}=%{{customdata[0]:.3g}}-%{{customdata[1]:.3g}}<br>"
+                    "count=%{customdata[2]:,}<br>"
+                    "fraction=%{customdata[3]:.3f}<extra></extra>"
+                ),
+            )
+        )
+
+    fig.update_layout(
+        title=metric,
+        xaxis_title=metric,
+        yaxis_title="Fraction of observations",
+        barmode="overlay",
+        bargap=0,
+        hovermode="x unified",
+        legend_title_text="Sample",
+    )
+
+    return fig
 
 
 def versions_yaml(process_name, list_of_libs=None):
@@ -135,7 +241,9 @@ if __name__ == "__main__":
     if args.versions_dict:
 
         libs = [
+            "numpy",
             "pandas",
+            "plotly",
         ]
         print(versions_yaml(args.versions_dict, libs))
 
