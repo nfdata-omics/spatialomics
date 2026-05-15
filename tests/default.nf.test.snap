@@ -5,6 +5,14 @@
                 "CAT_FASTQ": {
                     "cat": 9.5
                 },
+                "CELLPOSE_SEGMENTATION": {
+                    "cellpose": "4.0.8",
+                    "czifile": "2019.7.2.2",
+                    "python": "3.10.12",
+                    "tifffile": "2025.5.10",
+                    "torch": "2.10.0",
+                    "torchvision": "0.25.0"
+                },
                 "COLLECT_QC": {
                     "pandas": "3.0.1",
                     "python": "3.12.12"
@@ -18,6 +26,12 @@
                 },
                 "FQ_LINT": {
                     "fq": "0.12.0 (2024-07-08)"
+                },
+                "IMAGE_TO_TIFF": {
+                    "container": "docker.io/nfdata/cellpose-cuda:v4.0.8-torch2.10.0-cuda12.1.1"
+                },
+                "SEGMENTATION_AND_MICROSCOPY_PLOTS": {
+                    "container": "docker.io/nfdata/spatialdata:v0.7.2"
                 },
                 "SPACERANGER_COUNT": {
                     "spaceranger": "3.1.3"
@@ -52,6 +66,8 @@
                 }
             },
             [
+                "cell_segmentation",
+                "cell_segmentation/Visium_HD_Human_Lung_Cancer_HD_Only_Experiment2_mask.tif",
                 "count",
                 "count/Visium_HD_Human_Lung_Cancer_HD_Only_Experiment2",
                 "count/Visium_HD_Human_Lung_Cancer_HD_Only_Experiment2.zarr.tar.gz",
@@ -258,6 +274,7 @@
                 "multiqc/multiqc_data/multiqc_fastqc.txt",
                 "multiqc/multiqc_data/multiqc_general_stats.txt",
                 "multiqc/multiqc_data/multiqc_qc_metrics_table.txt",
+                "multiqc/multiqc_data/multiqc_segmentation_stats_table.txt",
                 "multiqc/multiqc_data/multiqc_software_versions.txt",
                 "multiqc/multiqc_data/multiqc_sources.txt",
                 "multiqc/multiqc_data/multiqc_spaceranger_metrics_16um.txt",
@@ -273,6 +290,7 @@
                 "multiqc/multiqc_plots/pdf/fastqc_sequence_counts_plot-cnt.pdf",
                 "multiqc/multiqc_plots/pdf/fastqc_sequence_counts_plot-pct.pdf",
                 "multiqc/multiqc_plots/pdf/qc_metrics_table.pdf",
+                "multiqc/multiqc_plots/pdf/segmentation_stats_table.pdf",
                 "multiqc/multiqc_plots/pdf/spaceranger_metrics_16um.pdf",
                 "multiqc/multiqc_plots/pdf/spaceranger_metrics_2um.pdf",
                 "multiqc/multiqc_plots/pdf/spaceranger_metrics_8um.pdf",
@@ -285,6 +303,7 @@
                 "multiqc/multiqc_plots/png/fastqc_sequence_counts_plot-cnt.png",
                 "multiqc/multiqc_plots/png/fastqc_sequence_counts_plot-pct.png",
                 "multiqc/multiqc_plots/png/qc_metrics_table.png",
+                "multiqc/multiqc_plots/png/segmentation_stats_table.png",
                 "multiqc/multiqc_plots/png/spaceranger_metrics_16um.png",
                 "multiqc/multiqc_plots/png/spaceranger_metrics_2um.png",
                 "multiqc/multiqc_plots/png/spaceranger_metrics_8um.png",
@@ -297,6 +316,7 @@
                 "multiqc/multiqc_plots/svg/fastqc_sequence_counts_plot-cnt.svg",
                 "multiqc/multiqc_plots/svg/fastqc_sequence_counts_plot-pct.svg",
                 "multiqc/multiqc_plots/svg/qc_metrics_table.svg",
+                "multiqc/multiqc_plots/svg/segmentation_stats_table.svg",
                 "multiqc/multiqc_plots/svg/spaceranger_metrics_16um.svg",
                 "multiqc/multiqc_plots/svg/spaceranger_metrics_2um.svg",
                 "multiqc/multiqc_plots/svg/spaceranger_metrics_8um.svg",
@@ -311,6 +331,7 @@
                 "quality_control/qc_metrics.csv"
             ],
             [
+                "Visium_HD_Human_Lung_Cancer_HD_Only_Experiment2_mask.tif:md5,05358cddd01161e2b8407d64555e36b9",
                 "filtered_feature_bc_matrix.h5:md5,0c04bf2ea059df078bec3e765b1f3105",
                 "barcodes.tsv.gz:md5,b24a9f7bb39f2dcd4e662cbe1eaf7763",
                 "features.tsv.gz:md5,53092c021f35473a120886f08871c246",
@@ -422,6 +443,7 @@
                 "multiqc_fastqc.txt:md5,6c8ca51029ac53d1eb6d9ea10817f8bc",
                 "multiqc_general_stats.txt:md5,554524defe1c2e35beb958d7bda08d6a",
                 "multiqc_qc_metrics_table.txt:md5,98038f8c40d7778037d0c3cf2137d475",
+                "multiqc_segmentation_stats_table.txt:md5,d6740c8b6c18d17e12ac953d2dd9f833",
                 "multiqc_spaceranger_metrics_16um.txt:md5,53bdf0cb04233d4fc054d50ec77e37ac",
                 "multiqc_spaceranger_metrics_2um.txt:md5,53bdf0cb04233d4fc054d50ec77e37ac",
                 "multiqc_spaceranger_metrics_8um.txt:md5,53bdf0cb04233d4fc054d50ec77e37ac",
@@ -434,8 +456,8 @@
         ],
         "meta": {
             "nf-test": "0.9.3",
-            "nextflow": "25.10.3"
+            "nextflow": "25.10.4"
         },
-        "timestamp": "2026-02-27T13:40:17.853618986"
+        "timestamp": "2026-05-15T18:04:44.496874916"
     }
 }
