@@ -142,6 +142,10 @@ workflow SPATIALOMICS {
         .mix ( ch_spaceranger_outs.map { meta, _out -> [["id": meta.id], meta.image] } )
         .set { ch_microscopy_images }
 
+    ch_reads.map { meta, _fastq -> [["id": meta.id], meta.crop_areas ?: ""] }
+        .mix ( ch_spaceranger_outs.map { meta, _out -> [["id": meta.id], meta.crop_areas ?: ""] } )
+        .set { ch_crop_areas }
+
     //
     // MODULE: Convert microscopy images to memmappable OME-TIFF format
     //
@@ -160,6 +164,7 @@ workflow SPATIALOMICS {
     SPACERANGER_TO_ZARR.out.zarr
         .join(CELLPOSE_SEGMENTATION.out.mask)
         .join(IMAGE_TO_TIFF.out.tiff)
+        .join(ch_crop_areas)
         .set { ch_segmentation_and_microscopy_inputs }
 
     //
@@ -169,8 +174,7 @@ workflow SPATIALOMICS {
         ch_segmentation_and_microscopy_inputs,
         params.zarr_downsample_factor,
         16,
-        2048,
-        ""
+        2048
     )
 
     //

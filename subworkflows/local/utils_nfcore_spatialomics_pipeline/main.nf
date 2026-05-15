@@ -192,6 +192,14 @@ def validateInputSamplesheet(input) {
         error("Please check input samplesheet -> Multiple runs of a sample must be of the same datatype i.e. single-end or paired-end: ${metas[0].id}")
     }
 
+    def unique_crop_areas = metas.collect { meta -> meta.crop_areas ?: "" }.unique()
+    if (unique_crop_areas.size() > 1) {
+        error(
+            "Please check input samplesheet -> Multiple rows for sample '${metas[0].id}' " +
+            "have different crop_areas values: ${unique_crop_areas.join(', ')}"
+        )
+    }
+
     return [ metas[0], fastqs ]
 }
 //

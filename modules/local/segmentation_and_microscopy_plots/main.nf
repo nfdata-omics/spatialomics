@@ -6,11 +6,10 @@ process SEGMENTATION_AND_MICROSCOPY_PLOTS {
     container 'docker.io/nfdata/spatialdata:v0.7.2'
 
     input:
-    tuple val(meta), path(zarr_folder), path(segmentation_mask), path(microscopy_image)
+    tuple val(meta), path(zarr_folder), path(segmentation_mask), path(microscopy_image), val(crop_areas)
     val zarr_downsample_factor
     val microscopy_downsample_factor
     val chunk_size
-    val crop_areas
 
     output:
     tuple val(meta), path("*_segmentation_microscopy.zarr"), optional: true, emit: zarr

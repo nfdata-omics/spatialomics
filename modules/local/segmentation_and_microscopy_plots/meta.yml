@@ -38,6 +38,9 @@ input:
         type: file
         description: Memmappable 2D TIFF microscopy image
         pattern: "*.tif"
+    - crop_areas:
+        type: string
+        description: Optional crop areas as x0:y0:x1:y1[;x0:y0:x1:y1] in sample coordinates
   - zarr_downsample_factor:
       type: number
       description: Downsampling factor between TIFF image coordinates and the zarr coordinate system
@@ -47,9 +50,6 @@ input:
   - chunk_size:
       type: integer
       description: Chunk size used for TIFF-backed dask arrays
-  - crop_areas:
-      type: string
-      description: Optional crop areas as x0:y0:x1:y1[,x0:y0:x1:y1] in sample coordinates
 output:
   zarr:
     - - meta:

@@ -41,12 +41,12 @@ class CropArea:
 
 
 def parse_crop_areas(crop_areas):
-    """Parse x0:y0:x1:y1 crop areas separated by commas."""
+    """Parse x0:y0:x1:y1 crop areas separated by semicolons."""
     if not crop_areas:
         return None
 
     parsed = []
-    for raw_area in crop_areas.split(","):
+    for raw_area in crop_areas.split(";"):
         raw_area = raw_area.strip()
         if not raw_area:
             continue
@@ -55,7 +55,7 @@ def parse_crop_areas(crop_areas):
         if len(parts) != 4:
             raise ValueError(
                 "Invalid crop area "
-                f"'{raw_area}'. Expected syntax: x0:y0:x1:y1[,x0:y0:x1:y1]"
+                f"'{raw_area}'. Expected syntax: x0:y0:x1:y1[;x0:y0:x1:y1]"
             )
 
         try:
@@ -601,7 +601,7 @@ def build_parser():
     )
     parser.add_argument(
         "--crop-areas",
-        help="Optional crop areas as x0:y0:x1:y1[,x0:y0:x1:y1] in sample coordinates",
+        help="Optional crop areas as x0:y0:x1:y1[;x0:y0:x1:y1] in sample coordinates",
     )
     parser.add_argument(
         "--results-dir",
