@@ -14,6 +14,7 @@ process SEGMENTATION_AND_MICROSCOPY_PLOTS {
     output:
     tuple val(meta), path("*_segmentation_microscopy.zarr"), optional: true, emit: zarr
     tuple val(meta), path("*_mqc.png"), emit: mqc_plots
+    tuple val(meta), path("*_segmentation_stats.csv"), emit: segmentation_stats
     tuple val("${task.process}"), val('container'), val('docker.io/nfdata/spatialdata:v0.7.2'), emit: versions_container, topic: versions
 
     when:
@@ -59,6 +60,7 @@ END_SCRIPT
     touch ${prefix}_registration_full_slide_mqc.png
     touch ${prefix}_crop_areas_downsampled_microscopy_mqc.png
     touch ${prefix}_segmentation_crop_panels_mqc.png
+    touch ${prefix}_segmentation_stats.csv
 
     """
 }

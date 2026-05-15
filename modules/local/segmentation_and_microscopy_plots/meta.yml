@@ -71,6 +71,16 @@ output:
           type: file
           description: MultiQC-compatible registration and segmentation PNG plots
           pattern: "*_mqc.png"
+  segmentation_stats:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information.
+            e.g. [ id:'NFG021_002' ]
+      - "*_segmentation_stats.csv":
+          type: file
+          description: One-row segmentation statistics CSV for MultiQC aggregation
+          pattern: "*_segmentation_stats.csv"
   versions_container:
     - - ${task.process}:
           type: string

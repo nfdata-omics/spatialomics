@@ -2,6 +2,7 @@
 """Add segmentation and microscopy layers to a Visium HD SpatialData object."""
 
 import argparse
+import csv
 import importlib
 import importlib.metadata
 import shutil
@@ -16,6 +17,7 @@ import matplotlib
 matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
+import numpy as np
 import spatialdata as sd
 import spatialdata_plot  # noqa: F401  # pylint: disable=unused-import
 import tifffile
@@ -159,6 +161,183 @@ def visium_bounds(sdata, square_key):
     """Return the full Visium square-grid bounds."""
     minx, miny, maxx, maxy = sdata[square_key].total_bounds
     return CropArea(x0=minx, y0=miny, x1=maxx, y1=maxy)
+
+
+def fullres_bounds_to_mask_slices(area, microscopy_shape, mask_shape, zarr_downsample_factor, mask_downsample_factor):
+    """Convert sample-coordinate bounds to full-resolution pixels and mask slices."""
+    x0 = max(0.0, area.x0 * zarr_downsample_factor)
+    y0 = max(0.0, area.y0 * zarr_downsample_factor)
+    x1 = min(float(microscopy_shape[1]), area.x1 * zarr_downsample_factor)
+    y1 = min(float(microscopy_shape[0]), area.y1 * zarr_downsample_factor)
+
+    if x0 >= x1 or y0 >= y1:
+        raise ValueError(
+            "Visium bounds do not overlap the microscopy image after coordinate conversion: "
+            f"{x0:g}:{y0:g}:{x1:g}:{y1:g}"
+        )
+
+    mask_x0 = max(0, int(np.floor(x0 / mask_downsample_factor)))
+    mask_y0 = max(0, int(np.floor(y0 / mask_downsample_factor)))
+    mask_x1 = min(mask_shape[1], int(np.ceil(x1 / mask_downsample_factor)))
+    mask_y1 = min(mask_shape[0], int(np.ceil(y1 / mask_downsample_factor)))
+
+    if mask_x0 >= mask_x1 or mask_y0 >= mask_y1:
+        raise ValueError(
+            "Visium bounds do not overlap the segmentation mask after coordinate conversion: "
+            f"{mask_x0}:{mask_y0}:{mask_x1}:{mask_y1}"
+        )
+
+    return (
+        CropArea(x0=x0, y0=y0, x1=x1, y1=y1),
+        slice(mask_y0, mask_y1),
+        slice(mask_x0, mask_x1),
+    )
+
+
+def label_counts(mask, chunk_size, y_slice=None, x_slice=None):
+    """Count non-zero label pixels in chunks."""
+    if y_slice is None:
+        y_slice = slice(0, mask.shape[0])
+    if x_slice is None:
+        x_slice = slice(0, mask.shape[1])
+
+    counts = {}
+    y_start = 0 if y_slice.start is None else y_slice.start
+    y_stop = mask.shape[0] if y_slice.stop is None else y_slice.stop
+    x_start = 0 if x_slice.start is None else x_slice.start
+    x_stop = mask.shape[1] if x_slice.stop is None else x_slice.stop
+
+    for y0 in range(y_start, y_stop, chunk_size):
+        y1 = min(y0 + chunk_size, y_stop)
+        for x0 in range(x_start, x_stop, chunk_size):
+            x1 = min(x0 + chunk_size, x_stop)
+            chunk = np.asarray(mask[y0:y1, x0:x1])
+            labels, label_counts_array = np.unique(chunk, return_counts=True)
+            for label, count in zip(labels, label_counts_array):
+                label = int(label)
+                if label == 0:
+                    continue
+                counts[label] = counts.get(label, 0) + int(count)
+
+    return counts
+
+
+def summarize_segmentation_region(counts, total_mask_pixels, fullres_area_px, area_scale, prefix):
+    """Summarize label counts for one region."""
+    segmented_mask_pixels = int(sum(counts.values()))
+    n_segments = len(counts)
+    row = {
+        f"{prefix}_n_segments": n_segments,
+        f"{prefix}_segmented_fraction": (
+            segmented_mask_pixels / total_mask_pixels if total_mask_pixels else 0.0
+        ),
+        f"{prefix}_segment_density_per_megapixel": (
+            n_segments / (fullres_area_px / 1_000_000) if fullres_area_px else 0.0
+        ),
+    }
+
+    area_columns = {
+        "mean": f"{prefix}_mean_segment_area_fullres_px",
+        "median": f"{prefix}_median_segment_area_fullres_px",
+        "min": f"{prefix}_min_segment_area_fullres_px",
+        "max": f"{prefix}_max_segment_area_fullres_px",
+        "p05": f"{prefix}_p05_segment_area_fullres_px",
+        "p95": f"{prefix}_p95_segment_area_fullres_px",
+    }
+
+    if counts:
+        areas = np.asarray(list(counts.values()), dtype=np.float64) * area_scale
+        row.update(
+            {
+                area_columns["mean"]: float(np.mean(areas)),
+                area_columns["median"]: float(np.median(areas)),
+                area_columns["min"]: float(np.min(areas)),
+                area_columns["max"]: float(np.max(areas)),
+                area_columns["p05"]: float(np.percentile(areas, 5)),
+                area_columns["p95"]: float(np.percentile(areas, 95)),
+            }
+        )
+    else:
+        row.update({column: 0.0 for column in area_columns.values()})
+
+    return row
+
+
+def segmentation_statistics_row(
+    sample_name,
+    sdata,
+    square_key,
+    segmentation_mask_tif,
+    microscopy_tif,
+    zarr_downsample_factor,
+    chunk_size,
+):
+    """Compute whole-image and Visium-area segmentation statistics."""
+    mask = read_memmapped_2d_tiff(segmentation_mask_tif, "segmentation mask")
+    microscopy = read_memmapped_2d_tiff(microscopy_tif, "microscopy image")
+    mask_downsample_factor = infer_downsample_factor(microscopy.shape, mask.shape)
+    visium_area = visium_bounds(sdata, square_key)
+    visium_fullres_area, visium_y_slice, visium_x_slice = fullres_bounds_to_mask_slices(
+        visium_area,
+        microscopy.shape,
+        mask.shape,
+        zarr_downsample_factor,
+        mask_downsample_factor,
+    )
+
+    area_scale = mask_downsample_factor * mask_downsample_factor
+    whole_fullres_area_px = microscopy.shape[0] * microscopy.shape[1]
+    visium_fullres_area_px = (
+        (visium_fullres_area.x1 - visium_fullres_area.x0)
+        * (visium_fullres_area.y1 - visium_fullres_area.y0)
+    )
+
+    whole_counts = label_counts(mask, chunk_size)
+    visium_counts = label_counts(mask, chunk_size, visium_y_slice, visium_x_slice)
+
+    row = {
+        "sample": sample_name,
+        "segmentation_downsample_factor": mask_downsample_factor,
+        "microscopy_height_px": microscopy.shape[0],
+        "microscopy_width_px": microscopy.shape[1],
+        "segmentation_height_px": mask.shape[0],
+        "segmentation_width_px": mask.shape[1],
+        "visium_x0_px": visium_fullres_area.x0,
+        "visium_y0_px": visium_fullres_area.y0,
+        "visium_x1_px": visium_fullres_area.x1,
+        "visium_y1_px": visium_fullres_area.y1,
+        "visium_width_px": visium_fullres_area.x1 - visium_fullres_area.x0,
+        "visium_height_px": visium_fullres_area.y1 - visium_fullres_area.y0,
+    }
+    row.update(
+        summarize_segmentation_region(
+            whole_counts,
+            mask.shape[0] * mask.shape[1],
+            whole_fullres_area_px,
+            area_scale,
+            "whole",
+        )
+    )
+    row.update(
+        summarize_segmentation_region(
+            visium_counts,
+            (visium_y_slice.stop - visium_y_slice.start)
+            * (visium_x_slice.stop - visium_x_slice.start),
+            visium_fullres_area_px,
+            area_scale,
+            "visium",
+        )
+    )
+    return row
+
+
+def save_segmentation_statistics(row, output_path):
+    """Write one-row segmentation statistics CSV."""
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(row.keys()))
+        writer.writeheader()
+        writer.writerow(row)
 
 
 def crop_areas_to_shapes(crop_areas, coordinate_system):
@@ -312,7 +491,7 @@ def save_registration_plot(
     ).pl.show(
         coordinate_systems=sample_name,
         ax=axes[0],
-        title="Visium hires image",
+        title=f"{sample_name} - CytAssist image",
     )
 
     sdata.pl.render_images(
@@ -328,7 +507,7 @@ def save_registration_plot(
     ).pl.show(
         coordinate_systems=sample_name,
         ax=axes[1],
-        title="Downsampled microscopy image",
+        title=f"{sample_name} - microscopy image",
     )
 
     fig.tight_layout()
@@ -526,6 +705,10 @@ def run(args):
 
     crop_areas = parse_crop_areas(args.crop_areas)
     sdata = sd.read_zarr(input_zarr)
+    square_key = f"{args.sample_name}_square_016um"
+
+    if square_key not in sdata:
+        raise ValueError(f"Required SpatialData element '{square_key}' not found")
 
     segmentation_key, microscopy_key, microscopy_downsampled_key = add_layers(
         sdata=sdata,
@@ -536,6 +719,20 @@ def run(args):
         microscopy_downsample_factor=args.microscopy_downsample_factor,
         chunk_size=args.chunk_size,
         overwrite=args.overwrite,
+    )
+
+    stats_row = segmentation_statistics_row(
+        sample_name=args.sample_name,
+        sdata=sdata,
+        square_key=square_key,
+        segmentation_mask_tif=segmentation_mask_tif,
+        microscopy_tif=microscopy_tif,
+        zarr_downsample_factor=args.zarr_downsample_factor,
+        chunk_size=args.chunk_size,
+    )
+    save_segmentation_statistics(
+        stats_row,
+        results_dir / f"{args.sample_name}_segmentation_stats.csv",
     )
 
     if output_zarr is not None:
