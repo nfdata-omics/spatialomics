@@ -1,6 +1,6 @@
 process IMAGE_TO_TIFF {
     tag "$meta.id"
-    label 'process_medium'
+    label 'process_single'
 
     conda "${moduleDir}/environment.yml"
     container 'docker.io/nfdata/cellpose-cuda:v4.0.8-torch2.10.0-cuda12.1.1'
