@@ -49,6 +49,13 @@
             "fa_icon": "fas fa-sliders-h",
             "description": "Parameters controlling spatial data processing and visualization.",
             "properties": {
+                "skip_segmentation": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Skip microscopy image conversion, Cellpose segmentation, and segmentation visualization outputs.",
+                    "help_text": "Use this option when microscopy images are present in the samplesheet but cell segmentation and the related MultiQC plots/statistics should not be generated.",
+                    "fa_icon": "fas fa-ban"
+                },
                 "zarr_downsample_factor": {
                     "type": "number",
                     "default": 1,
