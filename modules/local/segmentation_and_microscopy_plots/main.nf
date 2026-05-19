@@ -1,6 +1,6 @@
 process SEGMENTATION_AND_MICROSCOPY_PLOTS {
     tag "$meta.id"
-    label 'process_medium'
+    label 'process_single'
 
     conda "${moduleDir}/environment.yml"
     container 'docker.io/nfdata/spatialdata:v0.7.2'
