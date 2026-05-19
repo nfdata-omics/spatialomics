@@ -166,6 +166,7 @@ workflow SPATIALOMICS {
     ch_versions = ch_versions.mix(CELLPOSE_SEGMENTATION.out.versions.first())
 
     SPACERANGER_TO_ZARR.out.zarr
+        .map { meta, zarr -> [["id": meta.id], zarr] }
         .join(CELLPOSE_SEGMENTATION.out.mask)
         .join(IMAGE_TO_TIFF.out.tiff)
         .join(ch_crop_areas)
