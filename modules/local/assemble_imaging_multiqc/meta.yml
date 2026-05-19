@@ -1,0 +1,59 @@
+name: assemble_imaging_multiqc
+description: Assemble per-sample imaging and segmentation PNGs into MultiQC HTML custom content
+keywords:
+  - multiqc
+  - spatial transcriptomics
+  - microscopy
+  - segmentation
+tools:
+  - python:
+      description: Python programming language
+      homepage: https://www.python.org/
+      documentation: https://docs.python.org/
+      licence: ["PSF-2.0"]
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information.
+          e.g. [ id:'NFG021_002' ]
+    - images:
+        type: file
+        description: Per-sample PNG images to embed in the MultiQC HTML section
+        pattern: "*_mqc.png"
+output:
+  html:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information.
+            e.g. [ id:'NFG021_002' ]
+      - "*_imaging_and_segmentation_mqc.html":
+          type: file
+          description: MultiQC custom-content HTML containing per-sample imaging and segmentation figures
+          pattern: "*_imaging_and_segmentation_mqc.html"
+  versions_container:
+    - - ${task.process}:
+          type: string
+          description: The process the versions were collected from
+      - container:
+          type: string
+          description: The runtime environment type
+      - docker.io/nfdata/spatialdata:v0.7.2:
+          type: string
+          description: The Docker image used by the module
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: The process the versions were collected from
+      - container:
+          type: string
+          description: The runtime environment type
+      - docker.io/nfdata/spatialdata:v0.7.2:
+          type: string
+          description: The Docker image used by the module
+containers:
+  docker:
+    linux/amd64:
+      name: docker.io/nfdata/spatialdata:v0.7.2

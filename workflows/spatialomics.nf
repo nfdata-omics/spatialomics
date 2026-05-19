@@ -14,6 +14,7 @@ include { COLLECT_QC                  } from '../modules/local/collect_qc/main'
 include { IMAGE_TO_TIFF               } from '../modules/local/image_to_tiff/main'
 include { CELLPOSE_SEGMENTATION       } from '../modules/local/cellpose_segmentation/main'
 include { SEGMENTATION_AND_MICROSCOPY_PLOTS } from '../modules/local/segmentation_and_microscopy_plots/main'
+include { ASSEMBLE_IMAGING_MULTIQC    } from '../modules/local/assemble_imaging_multiqc/main'
 
 include { PREPARE_REF            } from '../subworkflows/local/prepare_ref'
 include { PREPARE_FASTQ          } from '../subworkflows/local/prepare_fastq'
@@ -135,7 +136,6 @@ workflow SPATIALOMICS {
 
     ch_multiqc_files = ch_multiqc_files.mix(COLLECT_QC.out.metrics)
     ch_multiqc_files = ch_multiqc_files.mix(COLLECT_QC.out.distributions)
-    ch_multiqc_files = ch_multiqc_files.mix(SPATIAL_QUALITY_CONTROL.out.mqc_plot.collect{ _meta, path -> path })
 
     // Prepare microscopy images and crop areas for downstream processing, unless segmentation is being skipped
     if ( params.skip_segmentation ) {
@@ -180,7 +180,29 @@ workflow SPATIALOMICS {
         16,
         2048
     )
-    ch_multiqc_files = ch_multiqc_files.mix(SEGMENTATION_AND_MICROSCOPY_PLOTS.out.mqc_plots.collect{ _meta, paths -> paths })
+
+    if ( params.skip_segmentation ) {
+
+        SPATIAL_QUALITY_CONTROL.out.mqc_plot
+            .map { meta, plot -> [meta, [plot]]}
+            .set { ch_imaging_multiqc_inputs }
+
+    } else {
+
+        SPATIAL_QUALITY_CONTROL.out.mqc_plot
+            .join(SEGMENTATION_AND_MICROSCOPY_PLOTS.out.registration_plot)
+            .join(SEGMENTATION_AND_MICROSCOPY_PLOTS.out.crop_areas_plot)
+            .join(SEGMENTATION_AND_MICROSCOPY_PLOTS.out.segmentation_crop_panels_plot)
+            .map { meta, mqc_plot, registration_plot, crop_areas_plot, segmentation_crop_panels_plot
+                     -> [meta, [mqc_plot, registration_plot, crop_areas_plot, segmentation_crop_panels_plot]]}
+            .set { ch_imaging_multiqc_inputs }
+
+    }
+
+    ASSEMBLE_IMAGING_MULTIQC (
+        ch_imaging_multiqc_inputs
+    )
+    ch_multiqc_files = ch_multiqc_files.mix(ASSEMBLE_IMAGING_MULTIQC.out.html.collect{ _meta, path -> path })
     ch_multiqc_files = ch_multiqc_files.mix(SEGMENTATION_AND_MICROSCOPY_PLOTS.out.segmentation_stats.collect{ _meta, paths -> paths })
 
     //
