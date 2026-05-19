@@ -96,7 +96,6 @@ plot_type: "html"
             '<figure style="margin:0;">'
             f'<img src="{data_uri}" alt="{escaped_alt}" '
             'style="max-width:100%;height:auto;border:1px solid #ddd;" />'
-            f'<figcaption style="font-size:.85rem;color:#666;margin-top:.35rem;">{sample_label}</figcaption>'
             "</figure>"
             "</section>"
         )
