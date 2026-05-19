@@ -191,6 +191,7 @@ workflow SPATIALOMICS {
     } else {
 
         SPATIAL_QUALITY_CONTROL.out.mqc_plot
+            .map { meta, png -> [["id": meta.id], png] }
             .join(SEGMENTATION_AND_MICROSCOPY_PLOTS.out.registration_plot)
             .join(SEGMENTATION_AND_MICROSCOPY_PLOTS.out.crop_areas_plot)
             .join(SEGMENTATION_AND_MICROSCOPY_PLOTS.out.segmentation_crop_panels_plot)
