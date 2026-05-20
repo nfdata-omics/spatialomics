@@ -2,6 +2,9 @@
     "-profile test": {
         "content": [
             {
+                "ASSEMBLE_IMAGING_MULTIQC": {
+                    "container": "docker.io/nfdata/spatialdata:v0.7.2"
+                },
                 "CAT_FASTQ": {
                     "cat": 9.5
                 },
@@ -262,6 +265,8 @@
                 "fastqc/Visium_HD_Human_Lung_Cancer_HD_Only_Experiment2_1_fastqc.zip",
                 "fastqc/Visium_HD_Human_Lung_Cancer_HD_Only_Experiment2_2_fastqc.html",
                 "fastqc/Visium_HD_Human_Lung_Cancer_HD_Only_Experiment2_2_fastqc.zip",
+                "imaging_plots",
+                "imaging_plots/Visium_HD_Human_Lung_Cancer_HD_Only_Experiment2_imaging_and_segmentation_mqc.html",
                 "multiqc",
                 "multiqc/multiqc_data",
                 "multiqc/multiqc_data/fastqc_per_base_n_content_plot.txt",
@@ -437,6 +442,7 @@
                 "detected_tissue_image.jpg:md5,d4ba1f337bbf9a6d4028139b8acb2411",
                 "tissue_hires_image.png:md5,e86177781b07119c5a680ea4af1d1d0d",
                 "tissue_lowres_image.png:md5,9aad2a56128c450c76fabbb44fb4c85a",
+                "Visium_HD_Human_Lung_Cancer_HD_Only_Experiment2_imaging_and_segmentation_mqc.html:md5,c57541f61946388217fb56ba2467bbdc",
                 "fastqc_per_base_n_content_plot.txt:md5,60c30869b5226368bf9e42881e1f06b8",
                 "fastqc_per_base_sequence_quality_plot.txt:md5,4fdbdc0489bca53bdf3463a7d47154e6",
                 "fastqc_per_sequence_quality_scores_plot.txt:md5,d5e2d3fe59e5ef3f3664febe74e3549d",
@@ -460,6 +466,6 @@
             "nf-test": "0.9.3",
             "nextflow": "25.10.4"
         },
-        "timestamp": "2026-05-15T19:31:18.534307966"
+        "timestamp": "2026-05-19T17:14:45.023508796"
     }
 }

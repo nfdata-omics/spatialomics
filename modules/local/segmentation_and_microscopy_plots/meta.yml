@@ -1,5 +1,5 @@
 name: segmentation_and_microscopy_plots
-description: Add segmentation and microscopy layers to a Visium HD SpatialData object and create registration plots
+description: Add segmentation and microscopy layers to a Visium HD SpatialData object and create per-sample review plots
 keywords:
   - spatialdata
   - spatial transcriptomics
@@ -61,16 +61,36 @@ output:
           type: directory
           description: Optional SpatialData zarr containing added segmentation and microscopy layers
           pattern: "*_segmentation_microscopy.zarr"
-  mqc_plots:
+  registration_plot:
     - - meta:
           type: map
           description: |
             Groovy Map containing sample information.
             e.g. [ id:'NFG021_002' ]
-      - "*_mqc.png":
+      - "*_registration_full_slide_mqc.png":
           type: file
-          description: MultiQC-compatible registration and segmentation PNG plots
-          pattern: "*_mqc.png"
+          description: Full-slide registration overview PNG for the per-sample MultiQC imaging report
+          pattern: "*_registration_full_slide_mqc.png"
+  crop_areas_plot:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information.
+            e.g. [ id:'NFG021_002' ]
+      - "*_crop_areas_downsampled_microscopy_mqc.png":
+          type: file
+          description: Downsampled microscopy PNG with selected crop areas for the per-sample MultiQC imaging report
+          pattern: "*_crop_areas_downsampled_microscopy_mqc.png"
+  segmentation_crop_panels_plot:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information.
+            e.g. [ id:'NFG021_002' ]
+      - "*_segmentation_crop_panels_mqc.png":
+          type: file
+          description: Segmentation crop-panel PNG for the per-sample MultiQC imaging report
+          pattern: "*_segmentation_crop_panels_mqc.png"
   segmentation_stats:
     - - meta:
           type: map

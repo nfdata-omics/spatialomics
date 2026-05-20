@@ -491,7 +491,7 @@ def save_registration_plot(
     ).pl.show(
         coordinate_systems=sample_name,
         ax=axes[0],
-        title=f"{sample_name} - CytAssist image",
+        title="CytAssist image",
     )
 
     sdata.pl.render_images(
@@ -507,7 +507,7 @@ def save_registration_plot(
     ).pl.show(
         coordinate_systems=sample_name,
         ax=axes[1],
-        title=f"{sample_name} - microscopy image",
+        title="microscopy image",
     )
 
     fig.tight_layout()
@@ -534,7 +534,6 @@ def save_crop_area_plot(
     )
 
     fig, axes = plt.subplots(1, 2, figsize=(14, 7))
-    fig.suptitle(sample_name)
 
     sdata.pl.render_images(
         microscopy_downsampled_key,
@@ -548,7 +547,7 @@ def save_crop_area_plot(
     ).pl.show(
         coordinate_systems=sample_name,
         ax=axes[0],
-        title="",
+        title="Full Slide",
     )
 
     visium_crop.pl.render_images(
@@ -563,13 +562,10 @@ def save_crop_area_plot(
     ).pl.show(
         coordinate_systems=sample_name,
         ax=axes[1],
-        title="",
+        title="Visium Area",
     )
 
-    for ax in axes:
-        ax.set_title("")
-
-    fig.tight_layout(rect=(0, 0, 1, 0.95))
+    fig.tight_layout(rect=(0, 0, 1, 0.95), w_pad=3.0)
     fig.savefig(output_path, dpi=200)
     plt.close(fig)
 
@@ -586,7 +582,7 @@ def save_segmentation_crop_panels(
     n_crops = len(crop_areas)
     fig_height = max(5, 4 * n_crops)
     fig, axes = plt.subplots(n_crops, 2, figsize=(12, fig_height), squeeze=False)
-    fig.suptitle(sample_name)
+    panel_title_fontsize = 8
 
     for index, crop_area in enumerate(crop_areas):
         min_coordinate, max_coordinate = crop_area.bounds_for_query
@@ -611,6 +607,7 @@ def save_segmentation_crop_panels(
             ax=axes[index, 0],
             title=f"{crop_label} - microscopy",
         )
+        axes[index, 0].set_title(axes[index, 0].get_title(), fontsize=panel_title_fontsize)
 
         crop_sdata.pl.render_images(
             microscopy_key,
@@ -626,6 +623,7 @@ def save_segmentation_crop_panels(
             ax=axes[index, 1],
             title=f"{crop_label} - segmentation",
         )
+        axes[index, 1].set_title(axes[index, 1].get_title(), fontsize=panel_title_fontsize)
 
     fig.tight_layout(rect=(0, 0, 1, 0.96))
     fig.savefig(output_path, dpi=300)

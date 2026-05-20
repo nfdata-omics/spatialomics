@@ -1,6 +1,6 @@
 process SEGMENTATION_AND_MICROSCOPY_PLOTS {
     tag "$meta.id"
-    label 'process_medium'
+    label 'process_single'
 
     conda "${moduleDir}/environment.yml"
     container 'docker.io/nfdata/spatialdata:v0.7.2'
@@ -13,7 +13,9 @@ process SEGMENTATION_AND_MICROSCOPY_PLOTS {
 
     output:
     tuple val(meta), path("*_segmentation_microscopy.zarr"), optional: true, emit: zarr
-    tuple val(meta), path("*_mqc.png"), emit: mqc_plots
+    tuple val(meta), path("*_registration_full_slide_mqc.png"), emit: registration_plot
+    tuple val(meta), path("*_crop_areas_downsampled_microscopy_mqc.png"), emit: crop_areas_plot
+    tuple val(meta), path("*_segmentation_crop_panels_mqc.png"), emit: segmentation_crop_panels_plot
     tuple val(meta), path("*_segmentation_stats.csv"), emit: segmentation_stats
     tuple val("${task.process}"), val('container'), val('docker.io/nfdata/spatialdata:v0.7.2'), emit: versions_container, topic: versions
 
