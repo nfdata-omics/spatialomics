@@ -63,6 +63,28 @@
                     "description": "Downsampling factor between full-resolution TIFF image coordinates and the SpatialData zarr coordinate system.",
                     "help_text": "Use this parameter when the coordinates stored in the SpatialData zarr are downsampled relative to the full-resolution microscopy and segmentation TIFF images.",
                     "fa_icon": "fas fa-compress-arrows-alt"
+                },
+                "skip_bin2cell": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Skip Bin2Cell aggregation of Visium HD bins into cell-level AnnData.",
+                    "help_text": "Use this option when segmentation should be run but cell-level Bin2Cell aggregation should be skipped.",
+                    "fa_icon": "fas fa-ban"
+                },
+                "bin2cell_bin_size": {
+                    "type": "string",
+                    "default": "square_002um",
+                    "description": "Space Ranger binned_outputs subdirectory used by Bin2Cell.",
+                    "help_text": "For Visium HD data this is typically one of square_002um, square_008um, or square_016um.",
+                    "fa_icon": "fas fa-border-all"
+                },
+                "bin2cell_volume_ratio": {
+                    "type": "number",
+                    "default": 4,
+                    "exclusiveMinimum": 0,
+                    "description": "Volume ratio used by Bin2Cell label expansion.",
+                    "help_text": "Passed to bin2cell.expand_labels to expand nuclear segmentation labels before bin-to-cell aggregation.",
+                    "fa_icon": "fas fa-expand-arrows-alt"
                 }
             }
         },
