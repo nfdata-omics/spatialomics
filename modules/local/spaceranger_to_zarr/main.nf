@@ -76,6 +76,8 @@ process SPACERANGER_TO_ZARR {
     #!/usr/bin/env python3
 
     import os
+    import sys
+    import yaml
     os.makedirs("${meta.id}.zarr", exist_ok=True)
 
     # ----------------------------------

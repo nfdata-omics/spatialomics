@@ -45,9 +45,9 @@ x0	y0	x1	y1
 0	0	1	1
 END_BOUNDS
 
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        spatialdata: unknown
-    END_VERSIONS
+    cat > versions.yml <<END_VERSIONS
+"${task.process}":
+    spatialdata: unknown
+END_VERSIONS
     """
 }

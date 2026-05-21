@@ -59,9 +59,9 @@ sample,input_bins,assigned_bins,unassigned_bins,assigned_fraction,unassigned_fra
 ${prefix},0,0,0,0.0,0.0,0,0,${volume_ratio},${bin_size}
 END_SUMMARY
 
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        bin2cell: unknown
-    END_VERSIONS
+    cat > versions.yml <<END_VERSIONS
+"${task.process}":
+    bin2cell: unknown
+END_VERSIONS
     """
 }
