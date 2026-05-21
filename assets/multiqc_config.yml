@@ -26,6 +26,10 @@ report_section_order:
     order: 2500
   segmentation_stats:
     order: 30
+  bin2cell:
+    order: 2400
+  bin2cell_summary:
+    order: 30
   imaging_and_segmentation:
     order: 2000
   "nfdata-omics-spatialomics-methods-description":
@@ -108,6 +112,8 @@ sp:
     fn: "*_imaging_and_segmentation_mqc.html"
   segmentation_stats:
     fn: "*_segmentation_stats.csv"
+  bin2cell_summary:
+    fn: "*_bin2cell_summary.csv"
 
 custom_data:
   spaceranger_general_stats:
@@ -451,3 +457,48 @@ custom_data:
       visium_p95_segment_area_fullres_px:
         title: "Visium p95 area (px)"
         description: "Ninety-fifth percentile segment area within the Visium capture area, reported in full-resolution pixels."
+
+  bin2cell_summary:
+    parent_id: bin2cell
+    parent_name: "Bin2Cell"
+    parent_description: |
+      Summary of Visium HD bin-to-cell aggregation using segmentation labels.
+    id: "bin2cell_summary"
+    section_name: "Bin2Cell summary"
+    description: |
+      Per-sample Bin2Cell assignment statistics. Assigned bins are bins matched
+      to an expanded segmentation label before cell-level aggregation.
+    plot_type: "table"
+    pconfig:
+      id: "bin2cell_summary_table"
+      title: "Bin2Cell summary"
+    headers:
+      input_bins:
+        title: "Input bins"
+        description: "Number of Visium HD bins provided to Bin2Cell."
+      assigned_bins:
+        title: "Assigned bins"
+        description: "Number of bins assigned to an expanded segmentation label."
+      unassigned_bins:
+        title: "Unassigned bins"
+        description: "Number of bins not assigned to an expanded segmentation label."
+      assigned_fraction:
+        title: "Assigned fraction"
+        description: "Fraction of input bins assigned to an expanded segmentation label."
+      unassigned_fraction:
+        title: "Unassigned fraction"
+        description: "Fraction of input bins not assigned to an expanded segmentation label."
+        hidden: true
+      segmentation_labels:
+        title: "Segmentation labels"
+        description: "Number of non-background segmentation labels in the input mask."
+      output_cells:
+        title: "Output cells"
+        description: "Number of cell-level observations produced by Bin2Cell."
+      volume_ratio:
+        title: "Volume ratio"
+        description: "Volume ratio passed to bin2cell.expand_labels."
+        hidden: true
+      bin_size:
+        title: "Bin size"
+        description: "Space Ranger binned_outputs resolution used by Bin2Cell."

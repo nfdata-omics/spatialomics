@@ -246,6 +246,7 @@ workflow SPATIALOMICS {
         params.bin2cell_volume_ratio
     )
     ch_versions = ch_versions.mix(BIN2CELL.out.versions.first())
+    ch_multiqc_files = ch_multiqc_files.mix(BIN2CELL.out.summary.collect{ _meta, path -> path })
 
     //
     // Collate and save software versions
