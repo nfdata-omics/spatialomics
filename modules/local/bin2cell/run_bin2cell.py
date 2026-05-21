@@ -128,6 +128,45 @@ def validate_inputs(args):
     return binned_path, spaceranger_image_path
 
 
+def read_memmapped_2d_tiff(path, label):
+    """Read a TIFF as a squeezed 2D memmap."""
+    try:
+        image = tifffile.memmap(path)
+    except Exception as exc:  # noqa: BLE001 - preserve the memmap failure context
+        raise ValueError(f"{label} TIFF is not memmappable: {path}") from exc
+
+    image = image.squeeze()
+    if image.ndim != 2:
+        raise ValueError(f"Expected {label} TIFF to be 2D after squeeze, got shape {image.shape}")
+
+    return image
+
+
+def downsampled_size(size, factor):
+    """Return the size produced by slicing an axis with [::factor]."""
+    return 0 if size == 0 else ((size - 1) // factor) + 1
+
+
+def infer_downsample_factor(full_shape, downsampled_shape):
+    """Infer the integer stride that maps a full-resolution image to a mask."""
+    if full_shape == downsampled_shape:
+        return 1
+
+    height_ratio = full_shape[0] / downsampled_shape[0]
+    width_ratio = full_shape[1] / downsampled_shape[1]
+    first_candidate = max(1, int(min(height_ratio, width_ratio)) - 2)
+    last_candidate = int(max(height_ratio, width_ratio)) + 3
+
+    for factor in range(first_candidate, last_candidate + 1):
+        if tuple(downsampled_size(size, factor) for size in full_shape) == downsampled_shape:
+            return factor
+
+    raise ValueError(
+        "Segmentation mask shape is not compatible with source image shape; "
+        f"got mask shape {downsampled_shape} and source image shape {full_shape}"
+    )
+
+
 def read_mask_as_sparse(mask_path, output_labels_npz):
     mask = tifffile.imread(mask_path)
     if mask.ndim > 2:
@@ -138,7 +177,65 @@ def read_mask_as_sparse(mask_path, output_labels_npz):
     labels_npz = scipy.sparse.csr_matrix(mask)
     scipy.sparse.save_npz(output_labels_npz, labels_npz)
     segmentation_labels = int(np.unique(mask).size - (1 if np.any(mask == 0) else 0))
-    return segmentation_labels
+    return segmentation_labels, mask.shape
+
+
+def store_labels_npz_path(adata, labels_npz_path, labels_key):
+    """Store labels path in adata.uns using the same convention as Bin2Cell."""
+    if "bin2cell" not in adata.uns:
+        adata.uns["bin2cell"] = {}
+    if "labels_npz_paths" not in adata.uns["bin2cell"]:
+        adata.uns["bin2cell"]["labels_npz_paths"] = {}
+
+    labels_npz_path = str(labels_npz_path)
+    if labels_npz_path.startswith("/"):
+        adata.uns["bin2cell"]["labels_npz_paths"][labels_key] = labels_npz_path
+    else:
+        adata.uns["bin2cell"]["labels_npz_paths"][labels_key] = str(Path.cwd() / labels_npz_path)
+
+
+def insert_labels_compatible(
+    adata,
+    labels_npz_path,
+    source_image_path,
+    mask_shape,
+    basis="spatial",
+    spatial_key="spatial",
+    labels_key="labels",
+):
+    """Insert labels while handling downsampled masks and SciPy sparse indexing quirks."""
+    labels_sparse = scipy.sparse.load_npz(labels_npz_path)
+    source_image = read_memmapped_2d_tiff(source_image_path, "source image")
+    mask_downsample_factor = infer_downsample_factor(source_image.shape, mask_shape)
+
+    store_labels_npz_path(adata, labels_npz_path, labels_key)
+
+    coords = b2c.get_mpp_coords(adata, basis=basis, spatial_key=spatial_key, mpp=None)
+    coords = np.asarray(coords, dtype=np.int64)
+    if coords.ndim != 2 or coords.shape[1] != 2:
+        raise ValueError(f"Expected 2D coordinates with two columns, got shape {coords.shape}")
+
+    if mask_downsample_factor != 1:
+        coords = coords // mask_downsample_factor
+
+    adata.obs[labels_key] = 0
+    mask = (
+        (coords[:, 0] >= 0)
+        & (coords[:, 0] < labels_sparse.shape[0])
+        & (coords[:, 1] >= 0)
+        & (coords[:, 1] < labels_sparse.shape[1])
+    )
+
+    if np.any(mask):
+        rows = np.asarray(coords[mask, 0], dtype=np.int64).reshape(-1)
+        cols = np.asarray(coords[mask, 1], dtype=np.int64).reshape(-1)
+        values = labels_sparse[rows, cols]
+        if scipy.sparse.issparse(values):
+            values = values.toarray()
+        values = np.asarray(values).reshape(-1)
+        adata.obs.loc[mask, labels_key] = values.astype(np.int64, copy=False)
+
+    return mask_downsample_factor
 
 
 def write_summary(args, adata, adata_cells, segmentation_labels):
@@ -162,9 +259,18 @@ def write_summary(args, adata, adata_cells, segmentation_labels):
     pd.DataFrame([row]).to_csv(args.output_summary, index=False)
 
 
+def labels_have_assignments(adata, labels_key):
+    """Return True when at least one bin has a non-zero segmentation label."""
+    labels = adata.obs[labels_key].to_numpy()
+    return bool(np.any(labels > 0))
+
+
 def run_bin2cell(args):
     binned_path, spaceranger_image_path = validate_inputs(args)
-    segmentation_labels = read_mask_as_sparse(args.segmentation_mask_tif, args.output_labels_npz)
+    segmentation_labels, mask_shape = read_mask_as_sparse(
+        args.segmentation_mask_tif,
+        args.output_labels_npz,
+    )
 
     adata = b2c.read_visium(
         str(binned_path),
@@ -172,28 +278,33 @@ def run_bin2cell(args):
         spaceranger_image_path=str(spaceranger_image_path),
     )
 
-    b2c.insert_labels(
+    mask_downsample_factor = insert_labels_compatible(
         adata=adata,
         labels_npz_path=str(args.output_labels_npz),
+        source_image_path=args.source_image,
+        mask_shape=mask_shape,
         basis="spatial",
         spatial_key="spatial",
-        mpp=None,
         labels_key="labels",
     )
 
-    b2c.expand_labels(
-        adata,
-        labels_key="labels",
-        expanded_labels_key="labels_expanded",
-        volume_ratio=args.volume_ratio,
-    )
+    if labels_have_assignments(adata, "labels"):
+        b2c.expand_labels(
+            adata,
+            labels_key="labels",
+            expanded_labels_key="labels_expanded",
+            volume_ratio=args.volume_ratio,
+        )
 
-    adata_cells = b2c.bin_to_cell(
-        adata=adata,
-        labels_key="labels_expanded",
-        spatial_keys=["spatial"],
-        diameter_scale_factor=None,
-    )
+        adata_cells = b2c.bin_to_cell(
+            adata=adata,
+            labels_key="labels_expanded",
+            spatial_keys=["spatial"],
+            diameter_scale_factor=None,
+        )
+    else:
+        adata.obs["labels_expanded"] = 0
+        adata_cells = adata[:0].copy()
 
     adata_cells.uns["bin2cell"] = {
         "sample": args.sample_name,
@@ -202,6 +313,7 @@ def run_bin2cell(args):
         "labels_key": "labels",
         "expanded_labels_key": "labels_expanded",
         "segmentation_labels": segmentation_labels,
+        "segmentation_downsample_factor": mask_downsample_factor,
     }
     adata_cells.write_h5ad(args.output_h5ad)
     write_summary(args, adata, adata_cells, segmentation_labels)
