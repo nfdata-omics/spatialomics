@@ -5,6 +5,15 @@
                 "ASSEMBLE_IMAGING_MULTIQC": {
                     "container": "docker.io/nfdata/spatialdata:v0.7.2"
                 },
+                "BIN2CELL": {
+                    "bin2cell": "0.3.4",
+                    "numpy": "2.3.4",
+                    "pandas": "2.3.3",
+                    "python": "3.13.9",
+                    "scanpy": "1.11.5",
+                    "scipy": "1.16.2",
+                    "tifffile": "2025.10.16"
+                },
                 "CAT_FASTQ": {
                     "cat": 9.5
                 },
@@ -66,11 +75,20 @@
                 "UNTAR_SPACERANGER_REF": {
                     "untar": 1.34
                 },
+                "VISIUM_BOUNDS": {
+                    "python": "3.11.11",
+                    "spatialdata": "0.7.2",
+                    "tifffile": "2026.1.28"
+                },
                 "Workflow": {
                     "nfdata-omics/spatialomics": "v0.0.1dev"
                 }
             },
             [
+                "bin2cell",
+                "bin2cell/Visium_HD_Human_Lung_Cancer_HD_Only_Experiment2_bin2cell_cells.h5ad",
+                "bin2cell/Visium_HD_Human_Lung_Cancer_HD_Only_Experiment2_bin2cell_labels.npz",
+                "bin2cell/Visium_HD_Human_Lung_Cancer_HD_Only_Experiment2_bin2cell_summary.csv",
                 "cell_segmentation",
                 "cell_segmentation/Visium_HD_Human_Lung_Cancer_HD_Only_Experiment2_mask.tif",
                 "count",
@@ -276,6 +294,7 @@
                 "multiqc/multiqc_data/llms-full.txt",
                 "multiqc/multiqc_data/multiqc.log",
                 "multiqc/multiqc_data/multiqc.parquet",
+                "multiqc/multiqc_data/multiqc_bin2cell_summary_table.txt",
                 "multiqc/multiqc_data/multiqc_citations.txt",
                 "multiqc/multiqc_data/multiqc_data.json",
                 "multiqc/multiqc_data/multiqc_fastqc.txt",
@@ -291,6 +310,7 @@
                 "multiqc/multiqc_data/multiqc_spaceranger_metrics_sequencing.txt",
                 "multiqc/multiqc_plots",
                 "multiqc/multiqc_plots/pdf",
+                "multiqc/multiqc_plots/pdf/bin2cell_summary_table.pdf",
                 "multiqc/multiqc_plots/pdf/fastqc_per_base_n_content_plot.pdf",
                 "multiqc/multiqc_plots/pdf/fastqc_per_base_sequence_quality_plot.pdf",
                 "multiqc/multiqc_plots/pdf/fastqc_per_sequence_quality_scores_plot.pdf",
@@ -304,6 +324,7 @@
                 "multiqc/multiqc_plots/pdf/spaceranger_metrics_mapping.pdf",
                 "multiqc/multiqc_plots/pdf/spaceranger_metrics_sequencing.pdf",
                 "multiqc/multiqc_plots/png",
+                "multiqc/multiqc_plots/png/bin2cell_summary_table.png",
                 "multiqc/multiqc_plots/png/fastqc_per_base_n_content_plot.png",
                 "multiqc/multiqc_plots/png/fastqc_per_base_sequence_quality_plot.png",
                 "multiqc/multiqc_plots/png/fastqc_per_sequence_quality_scores_plot.png",
@@ -317,6 +338,7 @@
                 "multiqc/multiqc_plots/png/spaceranger_metrics_mapping.png",
                 "multiqc/multiqc_plots/png/spaceranger_metrics_sequencing.png",
                 "multiqc/multiqc_plots/svg",
+                "multiqc/multiqc_plots/svg/bin2cell_summary_table.svg",
                 "multiqc/multiqc_plots/svg/fastqc_per_base_n_content_plot.svg",
                 "multiqc/multiqc_plots/svg/fastqc_per_base_sequence_quality_plot.svg",
                 "multiqc/multiqc_plots/svg/fastqc_per_sequence_quality_scores_plot.svg",
@@ -338,7 +360,10 @@
                 "quality_control/qc_metrics.csv"
             ],
             [
-                "Visium_HD_Human_Lung_Cancer_HD_Only_Experiment2_mask.tif:md5,05358cddd01161e2b8407d64555e36b9",
+                "Visium_HD_Human_Lung_Cancer_HD_Only_Experiment2_bin2cell_cells.h5ad:md5,94ddccd75cdb71ab79cf57b38fd41c58",
+                "Visium_HD_Human_Lung_Cancer_HD_Only_Experiment2_bin2cell_labels.npz:md5,919ca0ae0382e78acf8f1f892815539b",
+                "Visium_HD_Human_Lung_Cancer_HD_Only_Experiment2_bin2cell_summary.csv:md5,6fbd5ef787555e45d9b094c02e843457",
+                "Visium_HD_Human_Lung_Cancer_HD_Only_Experiment2_mask.tif:md5,1e7c17f618f74dc8e560085fdad5e4f2",
                 "filtered_feature_bc_matrix.h5:md5,0c04bf2ea059df078bec3e765b1f3105",
                 "barcodes.tsv.gz:md5,b24a9f7bb39f2dcd4e662cbe1eaf7763",
                 "features.tsv.gz:md5,53092c021f35473a120886f08871c246",
@@ -447,6 +472,7 @@
                 "fastqc_per_base_sequence_quality_plot.txt:md5,4fdbdc0489bca53bdf3463a7d47154e6",
                 "fastqc_per_sequence_quality_scores_plot.txt:md5,d5e2d3fe59e5ef3f3664febe74e3549d",
                 "fastqc_sequence_counts_plot.txt:md5,19494d2928422e419de7a9ea447327f8",
+                "multiqc_bin2cell_summary_table.txt:md5,31f162156f94ad3ef9d7c97a1e8e87b7",
                 "multiqc_citations.txt:md5,4c806e63a283ec1b7e78cdae3a923d4f",
                 "multiqc_fastqc.txt:md5,6c8ca51029ac53d1eb6d9ea10817f8bc",
                 "multiqc_general_stats.txt:md5,554524defe1c2e35beb958d7bda08d6a",
@@ -466,6 +492,6 @@
             "nf-test": "0.9.3",
             "nextflow": "25.10.4"
         },
-        "timestamp": "2026-05-19T17:14:45.023508796"
+        "timestamp": "2026-05-21T14:42:27.488702758"
     }
 }
