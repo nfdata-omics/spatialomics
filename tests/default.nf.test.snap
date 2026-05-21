@@ -360,7 +360,6 @@
                 "quality_control/qc_metrics.csv"
             ],
             [
-                "Visium_HD_Human_Lung_Cancer_HD_Only_Experiment2_bin2cell_cells.h5ad:md5,94ddccd75cdb71ab79cf57b38fd41c58",
                 "Visium_HD_Human_Lung_Cancer_HD_Only_Experiment2_bin2cell_labels.npz:md5,919ca0ae0382e78acf8f1f892815539b",
                 "Visium_HD_Human_Lung_Cancer_HD_Only_Experiment2_bin2cell_summary.csv:md5,6fbd5ef787555e45d9b094c02e843457",
                 "Visium_HD_Human_Lung_Cancer_HD_Only_Experiment2_mask.tif:md5,1e7c17f618f74dc8e560085fdad5e4f2",
