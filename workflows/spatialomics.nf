@@ -12,6 +12,7 @@ include { TAR                         } from '../modules/nf-core/tar/main'
 include { SPATIAL_QUALITY_CONTROL     } from '../modules/local/spatial_quality_control/main'
 include { COLLECT_QC                  } from '../modules/local/collect_qc/main'
 include { IMAGE_TO_TIFF               } from '../modules/local/image_to_tiff/main'
+include { VISIUM_BOUNDS               } from '../modules/local/visium_bounds/main'
 include { CELLPOSE_SEGMENTATION       } from '../modules/local/cellpose_segmentation/main'
 include { SEGMENTATION_AND_MICROSCOPY_PLOTS } from '../modules/local/segmentation_and_microscopy_plots/main'
 include { ASSEMBLE_IMAGING_MULTIQC    } from '../modules/local/assemble_imaging_multiqc/main'
@@ -157,11 +158,29 @@ workflow SPATIALOMICS {
         ch_microscopy_images
     )
 
+    SPACERANGER_TO_ZARR.out.zarr
+        .map { meta, zarr -> [["id": meta.id], zarr] }
+        .join(IMAGE_TO_TIFF.out.tiff)
+        .set { ch_visium_bounds_inputs }
+
+    //
+    // MODULE: Compute full-resolution microscopy bounds for the Visium capture area
+    //
+    VISIUM_BOUNDS (
+        ch_visium_bounds_inputs,
+        params.zarr_downsample_factor
+    )
+    ch_versions = ch_versions.mix(VISIUM_BOUNDS.out.versions.first())
+
+    IMAGE_TO_TIFF.out.tiff
+        .join(VISIUM_BOUNDS.out.bounds)
+        .set { ch_cellpose_inputs }
+
     //
     // MODULE: Cell segmentation with Cellpose
     //
     CELLPOSE_SEGMENTATION (
-        IMAGE_TO_TIFF.out.tiff
+        ch_cellpose_inputs
     )
     ch_versions = ch_versions.mix(CELLPOSE_SEGMENTATION.out.versions.first())
 

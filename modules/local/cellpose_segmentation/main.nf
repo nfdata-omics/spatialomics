@@ -5,7 +5,7 @@ process CELLPOSE_SEGMENTATION {
     container 'docker.io/nfdata/cellpose-cuda:v4.0.8-torch2.10.0-cuda12.1.1'
 
     input:
-    tuple val(meta), path(input_image)
+    tuple val(meta), path(input_image), path(visium_bounds)
 
     output:
     tuple val(meta), path("*_mask.tif"), emit: mask
@@ -30,6 +30,7 @@ END_SCRIPT
     python3 cellpose_segmentation.py \
     ${args} \
     --input-image "${input_image}" \
+    --visium-bounds "${visium_bounds}" \
     --output-mask "${meta.id}_mask.tif"
 
     python3 cellpose_segmentation.py \
