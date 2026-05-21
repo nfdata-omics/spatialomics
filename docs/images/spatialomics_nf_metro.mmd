@@ -3,8 +3,8 @@
 
 %%metro files: fastq_in | FASTQ | Raw sequencing reads
 %%metro dir: spaceranger_existing_in | Outs | Preprocessed Space Ranger output
-%%metro file: microscopy_image_in | Image | High-resolution microscopy image
-%%metro files: reference_files_in | Reference | Reference files
+%%metro file: microscopy_image_in | Img | High-resolution microscopy
+%%metro files: reference_files_in | Ref | Reference files
 
 %%metro file: report_out | HTML | MultiQC report
 %%metro dir: results_out | Results | Published outputs
@@ -12,42 +12,40 @@
 %%metro line: fastq_route | Start from FASTQ files | #2699CB
 %%metro line: processed_route | Start from processed Space Ranger outs | #96C95D
 
-
 graph LR
 
     subgraph fastq_alignment [Space Ranger alignment and quantification]
         reference_files_in[ ]
         fastq_in[ ]
-        prepare_ref[Prepare Space Ranger ref.]
+        prepare_ref[Prepare reference]
         spaceranger_count[Space Ranger count]
         reference_files_in -->|fastq_route| prepare_ref
-        spaceranger_count -->|fastq_route| all_spaceranger
         prepare_ref -->|fastq_route| spaceranger_count
         fastq_in -->|fastq_route| spaceranger_count
     end
 
-    spaceranger_count -->|fastq_route| space_ranger_outputs
+    spaceranger_count -->|fastq_route| _space_ranger_outputs
 
     subgraph visium_qc [HD Visium data conversion and quality control]
         spaceranger_existing_in[ ]
-        space_ranger_outputs[Space Ranger outputs]
-        collect_spaceranger_metrics[Collect Space Ranger metrics]
-        spaceranger_to_zarr[Convert to SpatialData/Zarr]
-        spatial_quality_control[Compute and aggregate Spatial QC]
+        _space_ranger_outputs[counts]
+        collect_spaceranger_metrics[Space Ranger metrics]
+        spaceranger_to_zarr[to SpatialData/Zarr]
+        spatial_quality_control[Spatial QC]
 
-        spaceranger_existing_in -->|processed_route| space_ranger_outputs
-        space_ranger_outputs -->|fastq_route,processed_route| spaceranger_to_zarr
+        spaceranger_existing_in -->|processed_route| _space_ranger_outputs
+        _space_ranger_outputs -->|fastq_route,processed_route| spaceranger_to_zarr
         spaceranger_to_zarr -->|fastq_route,processed_route| spatial_quality_control
-        space_ranger_outputs -->|fastq_route,processed_route| collect_spaceranger_metrics
+        _space_ranger_outputs -->|fastq_route,processed_route| collect_spaceranger_metrics
 
     end
 
-    spatial_quality_control -->|fastq_route,processed_route| segmentation_plots
+    spatial_quality_control -->|fastq_route,processed_route| lower_resolution_visium
 
     subgraph image_segmentation [Image segmentation]
         microscopy_image_in[ ]
-        image_to_tiff[Microscopy image to memmappable OME-TIFF]
-        cellpose[Cellpose tiled segmentation]
+        image_to_tiff[to memmappable OME-TIFF]
+        cellpose[Cellpose]
         segmentation_plots[Segmentation plots and statistics]
 
         microscopy_image_in -->|fastq_route,processed_route| image_to_tiff
@@ -58,30 +56,34 @@ graph LR
     segmentation_plots -->|fastq_route,processed_route| bin2cell
 
     subgraph single_cell_analysis [Single-cell data analysis]
-        bin2cell[bin2cell cell-level aggregation]
+        %%metro direction: LR
+        bin2cell[bin2cell]
         single_cell_annotation[Single-cell annotation]
 
         bin2cell -->|fastq_route,processed_route| single_cell_annotation
     end
 
-    space_ranger_outputs -->|fastq_route,processed_route| lower_resolution_visium
-
     subgraph deconvolution [Deconvolution analysis]
-        lower_resolution_visium[Lower-resolution Visium signal]
-        cell_type_deconvolution[Cell type deconvolution]
+        %%metro direction: LR
+        lower_resolution_visium[Low-res Visium]
+        cell_type_deconvolution[Celltype deconvolution]
 
         lower_resolution_visium -->|fastq_route,processed_route| cell_type_deconvolution
     end
 
-    cell_type_deconvolution -->|fastq_route,processed_route| multiqc
-    cell_type_deconvolution -->|fastq_route,processed_route| results_out
-    single_cell_annotation -->|fastq_route,processed_route| multiqc
-    single_cell_annotation -->|fastq_route,processed_route| results_out
+    spatial_quality_control -->|fastq_route,processed_route| segmentation_plots
+
+    cell_type_deconvolution -->|fastq_route,processed_route| _all_outputs
+    single_cell_annotation -->|fastq_route,processed_route| _all_outputs
 
     subgraph reporting [Reporting and output]
+        %%metro direction: LR
+        _all_outputs
         multiqc[MultiQC]
         report_out[ ]
         results_out[ ]
 
+        _all_outputs -->|fastq_route,processed_route| multiqc
+        _all_outputs -->|fastq_route,processed_route| results_out
         multiqc -->|fastq_route,processed_route| report_out
     end

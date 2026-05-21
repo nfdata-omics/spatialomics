@@ -1,0 +1,79 @@
+name: bin2cell
+description: Convert Visium HD bins to a cell-level AnnData object using segmentation labels
+keywords:
+  - bin2cell
+  - spatial transcriptomics
+  - visium hd
+  - segmentation
+  - anndata
+tools:
+  - bin2cell:
+      description: |
+        Bin2Cell aggregates Visium HD bins into cell-level expression profiles using image segmentation labels.
+      homepage: https://github.com/Teichlab/bin2cell
+      documentation: https://github.com/Teichlab/bin2cell
+      licence: ["MIT"]
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information.
+          e.g. [ id:'NFG021_002' ]
+    - spaceranger_outs:
+        type: directory
+        description: Space Ranger outs directory containing binned_outputs
+        pattern: "outs"
+    - segmentation_mask:
+        type: file
+        description: 2D segmentation mask TIFF
+        pattern: "*.tif"
+    - source_image:
+        type: file
+        description: Source microscopy TIFF used by Bin2Cell for Visium coordinate registration
+        pattern: "*.tif"
+  - bin_size:
+      type: string
+      description: Space Ranger binned_outputs subdirectory to use
+  - volume_ratio:
+      type: number
+      description: Volume ratio used by bin2cell.expand_labels
+output:
+  h5ad:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information.
+            e.g. [ id:'NFG021_002' ]
+      - "*_bin2cell_cells.h5ad":
+          type: file
+          description: Cell-level AnnData object produced by Bin2Cell
+          pattern: "*_bin2cell_cells.h5ad"
+  labels_npz:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information.
+            e.g. [ id:'NFG021_002' ]
+      - "*_bin2cell_labels.npz":
+          type: file
+          description: Sparse segmentation labels used as Bin2Cell input
+          pattern: "*_bin2cell_labels.npz"
+  summary:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information.
+            e.g. [ id:'NFG021_002' ]
+      - "*_bin2cell_summary.csv":
+          type: file
+          description: One-row Bin2Cell bin assignment summary
+          pattern: "*_bin2cell_summary.csv"
+  versions:
+    - versions.yml:
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+containers:
+  docker:
+    linux/amd64:
+      name: quay.io/biocontainers/bin2cell:0.3.4--pyhdfd78af_0

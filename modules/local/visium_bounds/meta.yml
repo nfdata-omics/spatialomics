@@ -1,0 +1,58 @@
+name: visium_bounds
+description: Compute Visium capture-area bounds in full-resolution microscopy image coordinates
+keywords:
+  - spatialdata
+  - spatial transcriptomics
+  - visium hd
+  - microscopy
+  - bounds
+tools:
+  - spatialdata:
+      description: |
+        SpatialData is a data framework for storing and manipulating spatial omics data.
+      homepage: https://spatialdata.scverse.org/
+      documentation: https://spatialdata.scverse.org/
+      licence: ["BSD-3-Clause"]
+  - tifffile:
+      description: |
+        tifffile reads and writes TIFF, BigTIFF, OME-TIFF, and related image formats.
+      homepage: https://github.com/cgohlke/tifffile
+      documentation: https://iridescent.ink/tifffile/tifffile.html
+      licence: ["BSD-3-Clause"]
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information.
+          e.g. [ id:'NFG021_002' ]
+    - zarr_folder:
+        type: directory
+        description: Input Visium HD SpatialData zarr folder
+        pattern: "*.zarr"
+    - microscopy_image:
+        type: file
+        description: Memmappable 2D TIFF microscopy image
+        pattern: "*.tif"
+  - zarr_downsample_factor:
+      type: number
+      description: Downsampling factor between TIFF image coordinates and the zarr coordinate system
+output:
+  bounds:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information.
+            e.g. [ id:'NFG021_002' ]
+      - "*_visium_bounds.tsv":
+          type: file
+          description: Full-resolution microscopy pixel bounds as x0, y0, x1, y1
+          pattern: "*_visium_bounds.tsv"
+  versions:
+    - versions.yml:
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+containers:
+  docker:
+    linux/amd64:
+      name: docker.io/nfdata/spatialdata:v0.7.2

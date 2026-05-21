@@ -18,3 +18,4 @@ count/**projection.csv
 count/**variance.csv
 count/*/feature_slice.h5
 count/*.zarr.tar.gz
+bin2cell/*_bin2cell_cells.h5ad

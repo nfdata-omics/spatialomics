@@ -66,9 +66,11 @@ process SPACERANGER_COUNT {
     if (workflow.profile.tokenize(',').intersect(['conda', 'mamba']).size() >= 1) {
         error "SPACERANGER_COUNT module does not support Conda. Please use Docker / Singularity / Podman instead."
     }
+    def prefix = task.ext.prefix ?: "${meta.id}"
     """
     mkdir -p outs/
     touch outs/fake_file.txt
+    touch ${prefix}_web_summary.html
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

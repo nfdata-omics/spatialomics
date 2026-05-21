@@ -75,6 +75,8 @@ def remove_edge_instances(tile_mask: np.ndarray) -> np.ndarray:
         raise ValueError("tile_mask must be a 2D array")
 
     cleaned = tile_mask.copy()
+    if cleaned.shape[0] < 3 or cleaned.shape[1] < 3:
+        return np.zeros_like(cleaned)
 
     # Collect instance IDs that touch the tile boundary
     edge_ids = set()
@@ -184,7 +186,97 @@ def stitch_instance_tiles_with_union(
     return stitched
 
 
-def image_segmenter(image_path, output_path, dowsample_factor=2, tile_size=1024, overlap=50):
+def downsampled_size(size, factor):
+    """Return the size produced by slicing an axis with [::factor]."""
+    return 0 if size == 0 else ((size - 1) // factor) + 1
+
+
+def read_visium_bounds(bounds_path):
+    """Read x0, y0, x1, y1 full-resolution bounds from a TSV file."""
+    with open(bounds_path, "r", encoding="utf-8") as handle:
+        lines = [line.strip() for line in handle if line.strip()]
+
+    if len(lines) < 2:
+        raise ValueError(f"Visium bounds file must contain a header and one data row: {bounds_path}")
+
+    header = lines[0].split("\t")
+    values = lines[1].split("\t")
+    if len(header) != len(values):
+        raise ValueError(f"Visium bounds file has inconsistent header/data columns: {bounds_path}")
+
+    row = dict(zip(header, values))
+    missing = [field for field in ("x0", "y0", "x1", "y1") if field not in row]
+    if missing:
+        raise ValueError(f"Visium bounds file is missing required columns: {', '.join(missing)}")
+
+    try:
+        x0, y0, x1, y1 = [int(float(row[field])) for field in ("x0", "y0", "x1", "y1")]
+    except ValueError as exc:
+        raise ValueError(f"Visium bounds file contains non-numeric coordinates: {bounds_path}") from exc
+
+    if x0 >= x1 or y0 >= y1:
+        raise ValueError(f"Invalid Visium bounds; expected x0 < x1 and y0 < y1, got {x0}:{y0}:{x1}:{y1}")
+
+    return x0, y0, x1, y1
+
+
+def crop_bounds_for_downsample(bounds, image_shape, padding, downsample_factor):
+    """Pad, clamp, and align crop starts to the downsample grid."""
+    if padding < 0:
+        raise ValueError(f"--crop-padding must be >= 0, got {padding}")
+    if downsample_factor <= 0:
+        raise ValueError(f"--downsample-factor must be > 0, got {downsample_factor}")
+
+    height, width = image_shape
+    x0, y0, x1, y1 = bounds
+    x0 = max(0, x0 - padding)
+    y0 = max(0, y0 - padding)
+    x1 = min(width, x1 + padding)
+    y1 = min(height, y1 + padding)
+
+    x0 = (x0 // downsample_factor) * downsample_factor
+    y0 = (y0 // downsample_factor) * downsample_factor
+
+    if x0 >= x1 or y0 >= y1:
+        raise ValueError(
+            "Padded Visium crop does not overlap the microscopy image: "
+            f"{x0}:{y0}:{x1}:{y1}"
+        )
+
+    return x0, y0, x1, y1
+
+
+def paste_crop_mask(crop_mask, full_image_shape, crop_bounds, downsample_factor, dtype=np.uint32):
+    """Paste a downsampled crop mask into a full-image downsampled mask."""
+    full_mask_shape = tuple(downsampled_size(size, downsample_factor) for size in full_image_shape)
+    full_mask = np.zeros(full_mask_shape, dtype=dtype)
+
+    x0, y0, _x1, _y1 = crop_bounds
+    mask_y0 = y0 // downsample_factor
+    mask_x0 = x0 // downsample_factor
+    mask_y1 = mask_y0 + crop_mask.shape[0]
+    mask_x1 = mask_x0 + crop_mask.shape[1]
+
+    if mask_y1 > full_mask.shape[0] or mask_x1 > full_mask.shape[1]:
+        raise ValueError(
+            "Cropped segmentation mask does not fit in full-image mask: "
+            f"crop mask shape={crop_mask.shape}, full mask shape={full_mask.shape}, "
+            f"paste slices y={mask_y0}:{mask_y1}, x={mask_x0}:{mask_x1}"
+        )
+
+    full_mask[mask_y0:mask_y1, mask_x0:mask_x1] = crop_mask
+    return full_mask
+
+
+def image_segmenter(
+    image_path,
+    output_path,
+    dowsample_factor=2,
+    tile_size=1024,
+    overlap=50,
+    visium_bounds_path=None,
+    crop_padding=256,
+):
     """
     Segment an image with Cellpose using tiled inference and save the mask.
 
@@ -200,6 +292,10 @@ def image_segmenter(image_path, output_path, dowsample_factor=2, tile_size=1024,
         Tile size used for tiled segmentation.
     overlap : int, optional
         Pixel overlap between neighboring tiles.
+    visium_bounds_path : str, optional
+        TSV file containing x0, y0, x1, y1 full-resolution Visium bounds.
+    crop_padding : int, optional
+        Full-resolution pixels added on each side of the Visium crop before segmentation.
     """
 
     # Load image at full resolution.
@@ -222,9 +318,25 @@ def image_segmenter(image_path, output_path, dowsample_factor=2, tile_size=1024,
             f"Expected 2D/3D image after squeeze, got shape {img.shape} (ndim={img.ndim})"
         )
 
-    # downscale
-    img = img[::dowsample_factor, ::dowsample_factor]
-    print(img.shape)
+    full_image_shape = img.shape
+    crop_bounds = None
+    if visium_bounds_path:
+        visium_bounds = read_visium_bounds(visium_bounds_path)
+        crop_bounds = crop_bounds_for_downsample(
+            visium_bounds,
+            full_image_shape,
+            crop_padding,
+            dowsample_factor,
+        )
+        x0, y0, x1, y1 = crop_bounds
+        print(f"Segmenting padded Visium crop in full-resolution pixels: {x0}:{y0}:{x1}:{y1}")
+        img_to_segment = img[y0:y1, x0:x1]
+    else:
+        img_to_segment = img
+
+    # Downscale only the selected region.
+    img_to_segment = img_to_segment[::dowsample_factor, ::dowsample_factor]
+    print(img_to_segment.shape)
 
     # Use GPU only when available, otherwise fall back to CPU.
     use_gpu = torch.cuda.is_available()
@@ -232,24 +344,41 @@ def image_segmenter(image_path, output_path, dowsample_factor=2, tile_size=1024,
     model = models.CellposeModel(gpu=use_gpu)
 
     stitched = stitch_instance_tiles_with_union(
-        img,
-        img.shape,
+        img_to_segment,
+        img_to_segment.shape,
         lambda tile: tile_segmenter(tile, model),
         tile_size=tile_size,
         overlap=overlap
     )
 
+    if crop_bounds is not None:
+        stitched = paste_crop_mask(
+            stitched,
+            full_image_shape,
+            crop_bounds,
+            dowsample_factor,
+        )
+
+    metadata = {
+        "axes": "YX",
+        "DownsampleFactor": dowsample_factor,
+    }
+    if crop_bounds is not None:
+        metadata.update(
+            {
+                "VisiumCropFullRes": list(crop_bounds),
+                "CropPaddingFullRes": crop_padding,
+            }
+        )
+
     tifffile.imwrite(
         output_path,
         stitched,
-        metadata={
-            "axes": "YX",
-            "DownsampleFactor": dowsample_factor,
-        },
+        metadata=metadata,
     )
 
 
-def versions_yaml(process_name, list_of_libs=None):
+def versions_yaml(process_name, list_of_libs=[]):
     """
     Generate YAML formatted string with versions of relevant libraries.
 
@@ -297,6 +426,10 @@ if __name__ == "__main__":
                         help="Downsampling factor for input image")
     parser.add_argument("--tile-size", type=int, default=1024, help="Tile size for segmentation")
     parser.add_argument("--overlap", type=int, default=50, help="Overlap in pixels between tiles")
+    parser.add_argument("--visium-bounds", type=str,
+                        help="TSV file containing x0, y0, x1, y1 full-resolution Visium bounds")
+    parser.add_argument("--crop-padding", type=int, default=256,
+                        help="Full-resolution pixels to add around the Visium bounds before segmentation")
     parser.add_argument("--versions-dict", type=str,
                         help="If set, print versions of relevant libraries in YAML format and exit")
     args = parser.parse_args()
@@ -319,5 +452,7 @@ if __name__ == "__main__":
             args.output_mask,
             dowsample_factor=args.downsample_factor,
             tile_size=args.tile_size,
-            overlap=args.overlap
+            overlap=args.overlap,
+            visium_bounds_path=args.visium_bounds,
+            crop_padding=args.crop_padding,
         )

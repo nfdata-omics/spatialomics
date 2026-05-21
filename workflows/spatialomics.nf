@@ -12,9 +12,11 @@ include { TAR                         } from '../modules/nf-core/tar/main'
 include { SPATIAL_QUALITY_CONTROL     } from '../modules/local/spatial_quality_control/main'
 include { COLLECT_QC                  } from '../modules/local/collect_qc/main'
 include { IMAGE_TO_TIFF               } from '../modules/local/image_to_tiff/main'
+include { VISIUM_BOUNDS               } from '../modules/local/visium_bounds/main'
 include { CELLPOSE_SEGMENTATION       } from '../modules/local/cellpose_segmentation/main'
 include { SEGMENTATION_AND_MICROSCOPY_PLOTS } from '../modules/local/segmentation_and_microscopy_plots/main'
 include { ASSEMBLE_IMAGING_MULTIQC    } from '../modules/local/assemble_imaging_multiqc/main'
+include { BIN2CELL                    } from '../modules/local/bin2cell/main'
 
 include { PREPARE_REF            } from '../subworkflows/local/prepare_ref'
 include { PREPARE_FASTQ          } from '../subworkflows/local/prepare_fastq'
@@ -157,11 +159,29 @@ workflow SPATIALOMICS {
         ch_microscopy_images
     )
 
+    SPACERANGER_TO_ZARR.out.zarr
+        .map { meta, zarr -> [["id": meta.id], zarr] }
+        .join(IMAGE_TO_TIFF.out.tiff)
+        .set { ch_visium_bounds_inputs }
+
+    //
+    // MODULE: Compute full-resolution microscopy bounds for the Visium capture area
+    //
+    VISIUM_BOUNDS (
+        ch_visium_bounds_inputs,
+        params.zarr_downsample_factor
+    )
+    ch_versions = ch_versions.mix(VISIUM_BOUNDS.out.versions.first())
+
+    IMAGE_TO_TIFF.out.tiff
+        .join(VISIUM_BOUNDS.out.bounds)
+        .set { ch_cellpose_inputs }
+
     //
     // MODULE: Cell segmentation with Cellpose
     //
     CELLPOSE_SEGMENTATION (
-        IMAGE_TO_TIFF.out.tiff
+        ch_cellpose_inputs
     )
     ch_versions = ch_versions.mix(CELLPOSE_SEGMENTATION.out.versions.first())
 
@@ -206,6 +226,27 @@ workflow SPATIALOMICS {
     )
     ch_multiqc_files = ch_multiqc_files.mix(ASSEMBLE_IMAGING_MULTIQC.out.html.collect{ _meta, path -> path })
     ch_multiqc_files = ch_multiqc_files.mix(SEGMENTATION_AND_MICROSCOPY_PLOTS.out.segmentation_stats.collect{ _meta, paths -> paths })
+
+    if ( params.skip_bin2cell ) {
+        ch_bin2cell_inputs = channel.empty()
+    } else {
+        ch_all_spaceranger_outs
+            .map { meta, outs -> [["id": meta.id], outs] }
+            .join(CELLPOSE_SEGMENTATION.out.mask)
+            .join(IMAGE_TO_TIFF.out.tiff)
+            .set { ch_bin2cell_inputs }
+    }
+
+    //
+    // MODULE: Aggregate Visium HD bins into cell-level AnnData with Bin2Cell
+    //
+    BIN2CELL (
+        ch_bin2cell_inputs,
+        params.bin2cell_bin_size,
+        params.bin2cell_volume_ratio
+    )
+    ch_versions = ch_versions.mix(BIN2CELL.out.versions.first())
+    ch_multiqc_files = ch_multiqc_files.mix(BIN2CELL.out.summary.collect{ _meta, path -> path })
 
     //
     // Collate and save software versions

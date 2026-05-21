@@ -1,0 +1,61 @@
+name: cellpose_segmentation
+description: Segment the Visium capture area of a microscopy image with Cellpose and write a full-image mask
+keywords:
+  - cellpose
+  - segmentation
+  - microscopy
+  - spatial transcriptomics
+  - visium hd
+tools:
+  - cellpose:
+      description: |
+        Cellpose is a generalist algorithm for cellular segmentation.
+      homepage: https://www.cellpose.org/
+      documentation: https://cellpose.readthedocs.io/
+      licence: ["BSD-3-Clause"]
+  - tifffile:
+      description: |
+        tifffile reads and writes TIFF, BigTIFF, OME-TIFF, and related image formats.
+      homepage: https://github.com/cgohlke/tifffile
+      documentation: https://iridescent.ink/tifffile/tifffile.html
+      licence: ["BSD-3-Clause"]
+  - czifile:
+      description: |
+        czifile reads Carl Zeiss Image CZI files.
+      homepage: https://github.com/cgohlke/czifile
+      documentation: https://pypi.org/project/czifile/
+      licence: ["BSD-3-Clause"]
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information.
+          e.g. [ id:'NFG021_002' ]
+    - input_image:
+        type: file
+        description: Input microscopy image in CZI, BTF, TIFF, or BigTIFF-compatible format
+        pattern: "*.{czi,btf,tif,tiff}"
+    - visium_bounds:
+        type: file
+        description: TSV file containing full-resolution microscopy bounds as x0, y0, x1, y1
+        pattern: "*_visium_bounds.tsv"
+output:
+  mask:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information.
+            e.g. [ id:'NFG021_002' ]
+      - "*_mask.tif":
+          type: file
+          description: Full-image 2D Cellpose segmentation mask with zeros outside the segmented Visium crop
+          pattern: "*_mask.tif"
+  versions:
+    - versions.yml:
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+containers:
+  docker:
+    linux/amd64:
+      name: docker.io/nfdata/cellpose-cuda:v4.0.8-torch2.10.0-cuda12.1.1

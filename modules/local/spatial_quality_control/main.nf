@@ -42,6 +42,10 @@ END_SCRIPT
     stub:
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
+    export NUMBA_CACHE_DIR=\${TMPDIR:-/tmp}
+    export MPLCONFIGDIR=\${TMPDIR:-/tmp}
+    export XDG_CONFIG_HOME=\${TMPDIR:-/tmp}
+
     cat << END_SCRIPT > spatial_quality_control.py
 ${file("${moduleDir}/spatial_quality_control.py").text}
 END_SCRIPT
