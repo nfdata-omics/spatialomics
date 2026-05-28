@@ -1,0 +1,102 @@
+name: cytassist_microscopy_alignment_refine
+description: Refine an existing CytAssist-to-microscopy transform with a bounded local affine step and write QC artifacts
+keywords:
+  - spatial transcriptomics
+  - visium hd
+  - cytassist
+  - microscopy
+  - image registration
+  - image alignment
+tools:
+  - opencv:
+      description: |
+        OpenCV provides image warping and gradient operations used in local affine refinement.
+      homepage: https://opencv.org/
+      documentation: https://docs.opencv.org/
+      licence: ["Apache-2.0"]
+  - scikit-image:
+      description: |
+        scikit-image provides image processing utilities and image quality metrics.
+      homepage: https://scikit-image.org/
+      documentation: https://scikit-image.org/docs/stable/
+      licence: ["BSD-3-Clause"]
+  - scipy:
+      description: |
+        SciPy provides the bounded optimizer used for local affine refinement.
+      homepage: https://scipy.org/
+      documentation: https://docs.scipy.org/doc/scipy/
+      licence: ["BSD-3-Clause"]
+  - tifffile:
+      description: |
+        tifffile reads TIFF, BigTIFF, OME-TIFF, and related image formats.
+      homepage: https://github.com/cgohlke/tifffile
+      documentation: https://iridescent.ink/tifffile/tifffile.html
+      licence: ["BSD-3-Clause"]
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information.
+          e.g. [ id:'NFG021_002' ]
+    - microscopy_image:
+        type: file
+        description: Memmappable or readable microscopy TIFF image
+        pattern: "*.{tif,tiff,ome.tif,ome.tiff}"
+    - cytassist_image:
+        type: file
+        description: CytAssist image
+        pattern: "*.{tif,tiff}"
+    - initial_transform:
+        type: file
+        description: Initial CytAssist-to-microscopy transform JSON
+        pattern: "*.json"
+output:
+  transform:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information.
+            e.g. [ id:'NFG021_002' ]
+      - "*_refined_cytassist_to_microscopy_transform.json":
+          type: file
+          description: Refined transform mapping CytAssist full-resolution pixel coordinates to microscopy full-resolution pixel coordinates
+          pattern: "*_refined_cytassist_to_microscopy_transform.json"
+  metrics:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information.
+            e.g. [ id:'NFG021_002' ]
+      - "*_cytassist_microscopy_alignment_refinement_metrics.csv":
+          type: file
+          description: Before/after local alignment refinement metrics
+          pattern: "*_cytassist_microscopy_alignment_refinement_metrics.csv"
+  overlay_before:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information.
+            e.g. [ id:'NFG021_002' ]
+      - "*_cytassist_microscopy_alignment_refinement_before_mqc.png":
+          type: file
+          description: QC overlay before local affine refinement
+          pattern: "*_cytassist_microscopy_alignment_refinement_before_mqc.png"
+  overlay_after:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information.
+            e.g. [ id:'NFG021_002' ]
+      - "*_cytassist_microscopy_alignment_refinement_after_mqc.png":
+          type: file
+          description: QC overlay after local affine refinement or accepted output transform
+          pattern: "*_cytassist_microscopy_alignment_refinement_after_mqc.png"
+  versions:
+    - versions.yml:
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+containers:
+  docker:
+    linux/amd64:
+      name: docker.io/nfdata/cytassist-microscopy-registration:local

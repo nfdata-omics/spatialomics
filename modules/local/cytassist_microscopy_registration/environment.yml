@@ -1,0 +1,18 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/environment-schema.json
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - imagecodecs
+  - matplotlib-base
+  - numpy
+  - opencv
+  - pandas
+  - pillow
+  - procps-ng
+  - pyyaml
+  - scikit-image
+  - scipy
+  - simpleitk
+  - tifffile

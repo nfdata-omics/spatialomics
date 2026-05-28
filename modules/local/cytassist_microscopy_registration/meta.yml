@@ -1,0 +1,93 @@
+name: cytassist_microscopy_registration
+description: Estimate a partial-field transform from CytAssist image coordinates to microscopy image coordinates and write QC artifacts
+keywords:
+  - spatial transcriptomics
+  - visium hd
+  - cytassist
+  - microscopy
+  - image registration
+tools:
+  - simpleitk:
+      description: |
+        SimpleITK provides registration and image-analysis algorithms built on ITK.
+      homepage: https://simpleitk.org/
+      documentation: https://simpleitk.readthedocs.io/
+      licence: ["Apache-2.0"]
+  - opencv:
+      description: |
+        OpenCV provides computer vision algorithms used here for mask-based image registration.
+      homepage: https://opencv.org/
+      documentation: https://docs.opencv.org/
+      licence: ["Apache-2.0"]
+  - scikit-image:
+      description: |
+        scikit-image provides image processing utilities and image quality metrics.
+      homepage: https://scikit-image.org/
+      documentation: https://scikit-image.org/docs/stable/
+      licence: ["BSD-3-Clause"]
+  - scipy:
+      description: |
+        SciPy provides the bounded optimizer used for local affine refinement.
+      homepage: https://scipy.org/
+      documentation: https://docs.scipy.org/doc/scipy/
+      licence: ["BSD-3-Clause"]
+  - tifffile:
+      description: |
+        tifffile reads and writes TIFF, BigTIFF, OME-TIFF, and related image formats.
+      homepage: https://github.com/cgohlke/tifffile
+      documentation: https://iridescent.ink/tifffile/tifffile.html
+      licence: ["BSD-3-Clause"]
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information.
+          e.g. [ id:'NFG021_002' ]
+    - microscopy_image:
+        type: file
+        description: Memmappable 2D TIFF microscopy image
+        pattern: "*.tif"
+    - cytassist_image:
+        type: file
+        description: CytAssist image
+        pattern: "*.{tif,tiff}"
+output:
+  transform:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information.
+            e.g. [ id:'NFG021_002' ]
+      - "*_cytassist_to_microscopy_transform.json":
+          type: file
+          description: Transform mapping CytAssist full-resolution pixel coordinates to microscopy full-resolution pixel coordinates
+          pattern: "*_cytassist_to_microscopy_transform.json"
+  metrics:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information.
+            e.g. [ id:'NFG021_002' ]
+      - "*_cytassist_microscopy_registration_metrics.csv":
+          type: file
+          description: Registration quality metrics
+          pattern: "*_cytassist_microscopy_registration_metrics.csv"
+  overlay:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information.
+            e.g. [ id:'NFG021_002' ]
+      - "*_cytassist_microscopy_registration_overlay_mqc.png":
+          type: file
+          description: QC overlay showing the transformed CytAssist preview over the microscopy preview
+          pattern: "*_cytassist_microscopy_registration_overlay_mqc.png"
+  versions:
+    - versions.yml:
+        type: file
+        description: File containing software versions
+        pattern: "versions.yml"
+containers:
+  docker:
+    linux/amd64:
+      name: docker.io/nfdata/cytassist-microscopy-registration:local
