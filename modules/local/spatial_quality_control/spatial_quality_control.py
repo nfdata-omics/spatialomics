@@ -73,9 +73,12 @@ def qc_from_h5ad(
         adata.X = sp.sparse.csr_matrix(adata.X)
 
     # Flag genes for QC
-    adata.var["mt"] = adata.var_names.str.startswith("MT-")
-    adata.var["ribo"] = adata.var_names.str.startswith(('RPS','RPL'))
-    adata.var["hb"] = adata.var_names.str.startswith("HB")
+    # adata.var["mt"] = adata.var_names.str.startswith("MT-")
+    adata.var["gene_symbols_upper"] = adata.var_names.str.upper()
+
+    adata.var["mt"] = adata.var["gene_symbols_upper"].str.startswith("MT-")
+    adata.var["ribo"] = adata.var["gene_symbols_upper"].str.startswith(('RPS','RPL'))
+    adata.var["hb"] = adata.var["gene_symbols_upper"].str.startswith("HB")
 
     # Calculate QC metrics
     sc.pp.calculate_qc_metrics(
