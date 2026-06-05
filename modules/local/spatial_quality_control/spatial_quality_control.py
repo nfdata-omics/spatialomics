@@ -73,7 +73,6 @@ def qc_from_h5ad(
         adata.X = sp.sparse.csr_matrix(adata.X)
 
     # Flag genes for QC
-    # adata.var["mt"] = adata.var_names.str.startswith("MT-")
     adata.var["gene_symbols_upper"] = adata.var_names.str.upper()
 
     adata.var["mt"] = adata.var["gene_symbols_upper"].str.startswith("MT-")
