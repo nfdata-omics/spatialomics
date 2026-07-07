@@ -1,0 +1,17 @@
+---
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - imagecodecs
+  - matplotlib-base
+  - numpy
+  - opencv
+  - pandas
+  - pillow
+  - procps-ng
+  - pyyaml
+  - scikit-image
+  - scipy
+  - simpleitk
+  - tifffile
