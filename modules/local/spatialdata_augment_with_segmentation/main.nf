@@ -1,4 +1,4 @@
-process SEGMENTATION_AND_MICROSCOPY_PLOTS {
+process SPATIALDATA_AUGMENT_WITH_SEGMENTATION {
     tag "$meta.id"
     label 'process_single'
 
@@ -35,11 +35,11 @@ process SEGMENTATION_AND_MICROSCOPY_PLOTS {
     export XDG_CACHE_HOME=\${TMPDIR:-/tmp}/.cache
     mkdir -p "\$XDG_CACHE_HOME/fontconfig"
 
-    cat << 'END_SCRIPT' > segmentation_and_microscopy_plots.py
-${file("${moduleDir}/segmentation_and_microscopy_plots.py").text}
+    cat << 'END_SCRIPT' > spatialdata_augment_with_segmentation.py
+${file("${moduleDir}/spatialdata_augment_with_segmentation.py").text}
 END_SCRIPT
 
-    python3 segmentation_and_microscopy_plots.py \
+    python3 spatialdata_augment_with_segmentation.py \
         ${args} \
         --input-zarr "${zarr_folder}" \
         ${output_zarr_arg} \

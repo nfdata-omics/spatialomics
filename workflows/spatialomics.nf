@@ -14,7 +14,7 @@ include { COLLECT_QC                  } from '../modules/local/collect_qc/main'
 include { IMAGE_TO_TIFF               } from '../modules/local/image_to_tiff/main'
 include { VISIUM_BOUNDS               } from '../modules/local/visium_bounds/main'
 include { CELLPOSE_SEGMENTATION       } from '../modules/local/cellpose_segmentation/main'
-include { SEGMENTATION_AND_MICROSCOPY_PLOTS } from '../modules/local/segmentation_and_microscopy_plots/main'
+include { SPATIALDATA_AUGMENT_WITH_SEGMENTATION } from '../modules/local/spatialdata_augment_with_segmentation/main'
 include { ASSEMBLE_IMAGING_MULTIQC    } from '../modules/local/assemble_imaging_multiqc/main'
 include { BIN2CELL                    } from '../modules/local/bin2cell/main'
 
@@ -155,52 +155,60 @@ workflow SPATIALOMICS {
     //
     // MODULE: Convert microscopy images to memmappable OME-TIFF format
     //
+
     IMAGE_TO_TIFF(
         ch_microscopy_images
     )
+
+    //
+    // MODULE: Compute full-resolution microscopy bounds for the Visium capture area
+    //
 
     SPACERANGER_TO_ZARR.out.zarr
         .map { meta, zarr -> [["id": meta.id], zarr] }
         .join(IMAGE_TO_TIFF.out.tiff)
         .set { ch_visium_bounds_inputs }
 
-    //
-    // MODULE: Compute full-resolution microscopy bounds for the Visium capture area
-    //
     VISIUM_BOUNDS (
         ch_visium_bounds_inputs,
         params.zarr_downsample_factor
     )
     ch_versions = ch_versions.mix(VISIUM_BOUNDS.out.versions.first())
 
+    //
+    // MODULE: Cell segmentation with Cellpose
+    //
+
     IMAGE_TO_TIFF.out.tiff
         .join(VISIUM_BOUNDS.out.bounds)
         .set { ch_cellpose_inputs }
 
-    //
-    // MODULE: Cell segmentation with Cellpose
-    //
     CELLPOSE_SEGMENTATION (
         ch_cellpose_inputs
     )
     ch_versions = ch_versions.mix(CELLPOSE_SEGMENTATION.out.versions.first())
+
+    //
+    // MODULE: Augment SpatialData with segmentation and microscopy layers
+    //
 
     SPACERANGER_TO_ZARR.out.zarr
         .map { meta, zarr -> [["id": meta.id], zarr] }
         .join(CELLPOSE_SEGMENTATION.out.mask)
         .join(IMAGE_TO_TIFF.out.tiff)
         .join(ch_crop_areas)
-        .set { ch_segmentation_and_microscopy_inputs }
+        .set { ch_spatialdata_augment_with_segmentation_inputs }
 
-    //
-    // MODULE: Generate segmentation and microscopy plots
-    //
-    SEGMENTATION_AND_MICROSCOPY_PLOTS (
-        ch_segmentation_and_microscopy_inputs,
+    SPATIALDATA_AUGMENT_WITH_SEGMENTATION (
+        ch_spatialdata_augment_with_segmentation_inputs,
         params.zarr_downsample_factor,
         16,
         2048
     )
+
+    //
+    // MODULE: Assemble imaging data to single-sample htmls for the MultiQC report
+    //
 
     if ( params.skip_segmentation ) {
 
@@ -212,9 +220,9 @@ workflow SPATIALOMICS {
 
         SPATIAL_QUALITY_CONTROL.out.mqc_plot
             .map { meta, png -> [["id": meta.id], png] }
-            .join(SEGMENTATION_AND_MICROSCOPY_PLOTS.out.registration_plot)
-            .join(SEGMENTATION_AND_MICROSCOPY_PLOTS.out.crop_areas_plot)
-            .join(SEGMENTATION_AND_MICROSCOPY_PLOTS.out.segmentation_crop_panels_plot)
+            .join(SPATIALDATA_AUGMENT_WITH_SEGMENTATION.out.registration_plot)
+            .join(SPATIALDATA_AUGMENT_WITH_SEGMENTATION.out.crop_areas_plot)
+            .join(SPATIALDATA_AUGMENT_WITH_SEGMENTATION.out.segmentation_crop_panels_plot)
             .map { meta, mqc_plot, registration_plot, crop_areas_plot, segmentation_crop_panels_plot
                      -> [meta, [mqc_plot, registration_plot, crop_areas_plot, segmentation_crop_panels_plot]]}
             .set { ch_imaging_multiqc_inputs }
@@ -225,7 +233,11 @@ workflow SPATIALOMICS {
         ch_imaging_multiqc_inputs
     )
     ch_multiqc_files = ch_multiqc_files.mix(ASSEMBLE_IMAGING_MULTIQC.out.html.collect{ _meta, path -> path })
-    ch_multiqc_files = ch_multiqc_files.mix(SEGMENTATION_AND_MICROSCOPY_PLOTS.out.segmentation_stats.collect{ _meta, paths -> paths })
+    ch_multiqc_files = ch_multiqc_files.mix(SPATIALDATA_AUGMENT_WITH_SEGMENTATION.out.segmentation_stats.collect{ _meta, paths -> paths })
+
+    //
+    // MODULE: Aggregate Visium HD bins into cell-level AnnData with Bin2Cell
+    //
 
     if ( params.skip_bin2cell ) {
         ch_bin2cell_inputs = channel.empty()
@@ -237,9 +249,6 @@ workflow SPATIALOMICS {
             .set { ch_bin2cell_inputs }
     }
 
-    //
-    // MODULE: Aggregate Visium HD bins into cell-level AnnData with Bin2Cell
-    //
     BIN2CELL (
         ch_bin2cell_inputs,
         params.bin2cell_bin_size,
@@ -251,6 +260,7 @@ workflow SPATIALOMICS {
     //
     // Collate and save software versions
     //
+
     def topic_versions = channel.topic("versions")
         .distinct()
         .branch { entry ->

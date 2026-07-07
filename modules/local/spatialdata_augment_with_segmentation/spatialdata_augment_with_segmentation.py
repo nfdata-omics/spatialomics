@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Add segmentation and microscopy layers to a Visium HD SpatialData object."""
+"""Augment a Visium HD SpatialData object with segmentation and microscopy layers."""
 
 import argparse
 import csv
@@ -780,7 +780,7 @@ def build_parser():
     """Build command-line parser."""
     parser = argparse.ArgumentParser(
         description=(
-            "Add segmentation and microscopy TIFF layers to a Visium HD SpatialData zarr "
+            "Augment a Visium HD SpatialData zarr with segmentation and microscopy TIFF layers "
             "and generate registration/segmentation result plots."
         )
     )
