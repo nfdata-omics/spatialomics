@@ -155,35 +155,43 @@ workflow SPATIALOMICS {
     //
     // MODULE: Convert microscopy images to memmappable OME-TIFF format
     //
+
     IMAGE_TO_TIFF(
         ch_microscopy_images
     )
+    ch_versions = ch_versions.mix(IMAGE_TO_TIFF.out.versions.first())
+
+    //
+    // MODULE: Compute full-resolution microscopy bounds for the Visium capture area
+    //
 
     SPACERANGER_TO_ZARR.out.zarr
         .map { meta, zarr -> [["id": meta.id], zarr] }
         .join(IMAGE_TO_TIFF.out.tiff)
         .set { ch_visium_bounds_inputs }
 
-    //
-    // MODULE: Compute full-resolution microscopy bounds for the Visium capture area
-    //
     VISIUM_BOUNDS (
         ch_visium_bounds_inputs,
         params.zarr_downsample_factor
     )
     ch_versions = ch_versions.mix(VISIUM_BOUNDS.out.versions.first())
 
+    //
+    // MODULE: Cell segmentation with Cellpose
+    //
+
     IMAGE_TO_TIFF.out.tiff
         .join(VISIUM_BOUNDS.out.bounds)
         .set { ch_cellpose_inputs }
 
-    //
-    // MODULE: Cell segmentation with Cellpose
-    //
     CELLPOSE_SEGMENTATION (
         ch_cellpose_inputs
     )
     ch_versions = ch_versions.mix(CELLPOSE_SEGMENTATION.out.versions.first())
+
+    //
+    // MODULE: Generate segmentation and microscopy plots
+    //
 
     SPACERANGER_TO_ZARR.out.zarr
         .map { meta, zarr -> [["id": meta.id], zarr] }
@@ -192,15 +200,16 @@ workflow SPATIALOMICS {
         .join(ch_crop_areas)
         .set { ch_segmentation_and_microscopy_inputs }
 
-    //
-    // MODULE: Generate segmentation and microscopy plots
-    //
     SEGMENTATION_AND_MICROSCOPY_PLOTS (
         ch_segmentation_and_microscopy_inputs,
         params.zarr_downsample_factor,
         16,
         2048
     )
+
+    //
+    // MODULE: Assemble imaging data to single-sample htmls for the MultiQC report
+    //
 
     if ( params.skip_segmentation ) {
 
@@ -227,6 +236,10 @@ workflow SPATIALOMICS {
     ch_multiqc_files = ch_multiqc_files.mix(ASSEMBLE_IMAGING_MULTIQC.out.html.collect{ _meta, path -> path })
     ch_multiqc_files = ch_multiqc_files.mix(SEGMENTATION_AND_MICROSCOPY_PLOTS.out.segmentation_stats.collect{ _meta, paths -> paths })
 
+    //
+    // MODULE: Aggregate Visium HD bins into cell-level AnnData with Bin2Cell
+    //
+
     if ( params.skip_bin2cell ) {
         ch_bin2cell_inputs = channel.empty()
     } else {
@@ -237,9 +250,6 @@ workflow SPATIALOMICS {
             .set { ch_bin2cell_inputs }
     }
 
-    //
-    // MODULE: Aggregate Visium HD bins into cell-level AnnData with Bin2Cell
-    //
     BIN2CELL (
         ch_bin2cell_inputs,
         params.bin2cell_bin_size,
@@ -251,6 +261,7 @@ workflow SPATIALOMICS {
     //
     // Collate and save software versions
     //
+
     def topic_versions = channel.topic("versions")
         .distinct()
         .branch { entry ->
