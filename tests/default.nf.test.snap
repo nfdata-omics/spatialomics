@@ -44,7 +44,7 @@
                 "IMAGE_TO_TIFF": {
                     "container": "docker.io/nfdata/cellpose-cuda:v4.0.8-torch2.10.0-cuda12.1.1"
                 },
-                "SEGMENTATION_AND_MICROSCOPY_PLOTS": {
+                "SPATIALDATA_AUGMENT_WITH_SEGMENTATION": {
                     "container": "docker.io/nfdata/spatialdata:v0.7.2"
                 },
                 "SPACERANGER_COUNT": {

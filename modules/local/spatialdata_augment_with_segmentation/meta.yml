@@ -1,5 +1,5 @@
-name: segmentation_and_microscopy_plots
-description: Add segmentation and microscopy layers to a Visium HD SpatialData object and create per-sample review plots
+name: spatialdata_augment_with_segmentation
+description: Augment a Visium HD SpatialData object with segmentation and microscopy layers and create per-sample review plots
 keywords:
   - spatialdata
   - spatial transcriptomics
