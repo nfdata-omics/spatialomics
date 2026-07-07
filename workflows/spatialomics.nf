@@ -159,7 +159,6 @@ workflow SPATIALOMICS {
     IMAGE_TO_TIFF(
         ch_microscopy_images
     )
-    ch_versions = ch_versions.mix(IMAGE_TO_TIFF.out.versions.first())
 
     //
     // MODULE: Compute full-resolution microscopy bounds for the Visium capture area
