@@ -524,6 +524,9 @@ custom_data:
       id: "bin2cell_summary_table"
       title: "Bin2Cell summary"
     headers:
+      bin_size:
+        title: "Bin size"
+        description: "Space Ranger binned_outputs resolution used by Bin2Cell."
       input_bins:
         title: "Input bins"
         description: "Number of Visium HD bins provided to Bin2Cell."
@@ -550,6 +553,3 @@ custom_data:
         title: "Volume ratio"
         description: "Volume ratio passed to bin2cell.expand_labels."
         hidden: true
-      bin_size:
-        title: "Bin size"
-        description: "Space Ranger binned_outputs resolution used by Bin2Cell."
