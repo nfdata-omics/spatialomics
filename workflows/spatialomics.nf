@@ -126,13 +126,20 @@ workflow SPATIALOMICS {
     // MODULE: Spatial quality control
     //
     SPATIAL_QUALITY_CONTROL (
-        SPACERANGER_TO_ZARR.out.zarr
+        SPACERANGER_TO_ZARR.out.zarr,
+        params.bin_analysis_bin_size,
+        params.bin_analysis_min_counts,
+        params.bin_analysis_min_genes,
+        params.bin_analysis_max_mt
     )
     ch_versions = ch_versions.mix(SPATIAL_QUALITY_CONTROL.out.versions.first())
 
     COLLECT_QC (
         SPATIAL_QUALITY_CONTROL.out.annotated_obs.collect{ _meta, path -> path },
-        SPATIAL_QUALITY_CONTROL.out.metrics.collect{ _meta, path -> path }
+        SPATIAL_QUALITY_CONTROL.out.metrics.collect{ _meta, path -> path },
+        params.bin_analysis_min_counts,
+        params.bin_analysis_min_genes,
+        params.bin_analysis_max_mt
     )
     ch_versions = ch_versions.mix(COLLECT_QC.out.versions.first())
 

@@ -6,6 +6,10 @@ process SPATIAL_QUALITY_CONTROL {
 
     input:
     tuple val(meta), path(zarr_folder)
+    val resolution
+    val min_counts
+    val min_genes
+    val max_mt
 
     output:
     path "versions.yml",                             emit: versions
@@ -24,6 +28,8 @@ process SPATIAL_QUALITY_CONTROL {
     export NUMBA_CACHE_DIR=\${TMPDIR:-/tmp}
     export MPLCONFIGDIR=\${TMPDIR:-/tmp}
     export XDG_CONFIG_HOME=\${TMPDIR:-/tmp}
+    export XDG_CACHE_HOME=\${TMPDIR:-/tmp}/.cache
+    mkdir -p "\$XDG_CACHE_HOME/fontconfig"
 
     cat << END_SCRIPT > spatial_quality_control.py
 ${file("${moduleDir}/spatial_quality_control.py").text}
@@ -31,7 +37,11 @@ END_SCRIPT
 
     python3 spatial_quality_control.py \
         --zarr "${zarr_folder}" \
-        --sample "${prefix}"
+        --sample "${prefix}" \
+        --resolution "${resolution}" \
+        --min-counts "${min_counts}" \
+        --min-genes "${min_genes}" \
+        --max-mt "${max_mt}"
 
     mv ${prefix}_qc_spatial_plots.png ${prefix}_qc_mqc.png
 
@@ -45,6 +55,8 @@ END_SCRIPT
     export NUMBA_CACHE_DIR=\${TMPDIR:-/tmp}
     export MPLCONFIGDIR=\${TMPDIR:-/tmp}
     export XDG_CONFIG_HOME=\${TMPDIR:-/tmp}
+    export XDG_CACHE_HOME=\${TMPDIR:-/tmp}/.cache
+    mkdir -p "\$XDG_CACHE_HOME/fontconfig"
 
     cat << END_SCRIPT > spatial_quality_control.py
 ${file("${moduleDir}/spatial_quality_control.py").text}

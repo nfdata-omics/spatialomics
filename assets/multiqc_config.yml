@@ -324,10 +324,61 @@ custom_data:
     id: "qc_metrics"
     section_name: "QC summary table"
     description: |
-      Per-sample QC metrics collected by the pipeline.
+      Per-sample bin-level quality-control summary. Counts report the number of
+      spots or bins flagged by each QC criterion after out-of-tissue observations
+      have been masked.
     plot_type: "table"
     pconfig:
       id: "qc_metrics_table"
+      title: "QC summary"
+    headers:
+      "Bin size":
+        title: "Bin size"
+        description: "Space Ranger binned_outputs resolution used for bin-level quality control."
+      "Total spots":
+        title: "Total spots"
+        description: "Total number of observations in the selected bin-level matrix, including out-of-tissue spots or bins."
+      "In-tissue spots":
+        title: "In-tissue spots"
+        description: "Number of observations marked as being under tissue."
+      "Valid bins":
+        title: "Valid bins"
+        description: "Number of in-tissue bins that passed both global QC filters and spatial local-outlier filtering."
+      "Valid bins fraction":
+        title: "Valid bin fraction"
+        description: "Fraction of in-tissue bins retained after global QC filters and spatial local-outlier filtering."
+      "Mean UMI counts in valid bins":
+        title: "Mean UMI counts"
+        description: "Mean total UMI counts calculated across valid in-tissue bins."
+      "Mean genes in valid bins":
+        title: "Mean detected genes"
+        description: "Mean number of detected genes calculated across valid in-tissue bins."
+      "Mean mitochondrial % in valid bins":
+        title: "Mean mt %"
+        description: "Mean mitochondrial counts percentage calculated across valid in-tissue bins."
+      "Mean novelty score in valid bins":
+        title: "Mean novelty score"
+        description: "Mean novelty score calculated across valid in-tissue bins. The novelty score is detected genes divided by total UMI counts."
+        hidden: true
+      "Low number of UMI per spot":
+        title: "Low UMI spots"
+        description: "Number of in-tissue observations with total UMI counts below the configured minimum-counts threshold."
+      "Low number of genes per spot":
+        title: "Low gene spots"
+        description: "Number of in-tissue observations with detected genes below the configured minimum-genes threshold."
+      "High % mitochondrial counts":
+        title: "High mt spots"
+        description: "Number of in-tissue observations with mitochondrial counts percentage above the configured maximum-mitochondrial threshold."
+      "Low complexity":
+        title: "Low complexity spots"
+        description: "Number of in-tissue observations with novelty score at or below the configured complexity threshold. The novelty score is detected genes divided by total UMI counts."
+        hidden: true
+      "Global outliers":
+        title: "Global QC outliers"
+        description: "Number of in-tissue observations flagged by at least one global QC filter: low UMI counts, low detected genes, high mitochondrial percentage, or low complexity."
+      "Local outliers":
+        title: "Local QC outliers"
+        description: "Number of in-tissue observations flagged as spatial local outliers because their total counts, detected genes, or mitochondrial percentage are unusually different from neighboring observations."
 
   segmentation_stats:
     parent_id: segmentation
@@ -473,6 +524,9 @@ custom_data:
       id: "bin2cell_summary_table"
       title: "Bin2Cell summary"
     headers:
+      bin_size:
+        title: "Bin size"
+        description: "Space Ranger binned_outputs resolution used by Bin2Cell."
       input_bins:
         title: "Input bins"
         description: "Number of Visium HD bins provided to Bin2Cell."
@@ -499,6 +553,3 @@ custom_data:
         title: "Volume ratio"
         description: "Volume ratio passed to bin2cell.expand_labels."
         hidden: true
-      bin_size:
-        title: "Bin size"
-        description: "Space Ranger binned_outputs resolution used by Bin2Cell."

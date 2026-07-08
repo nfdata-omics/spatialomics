@@ -5,8 +5,10 @@ import importlib
 import importlib.metadata
 import argparse
 import sys
+from matplotlib.colors import Normalize
 import yaml
 
+import numpy as np
 import scipy as sp
 import pandas as pd
 import matplotlib
@@ -22,7 +24,7 @@ matplotlib.use("Agg")
 def qc_from_h5ad(
     zarr_folder,
     sample_id,
-    resolution="016um",
+    resolution="square_016um",
     min_counts=100,
     min_genes=50,
     max_mt=20,
@@ -42,7 +44,7 @@ def qc_from_h5ad(
     sample_id : str
         Unique identifier for the sample being processed.
     resolution : str, optional
-        Resolution of the spatial data to process. Default is "016um".
+        Label of the table in the Zarr object pointing to the resolution to process. Default is "square_016um".
     min_counts : int, optional
         Minimum number of UMI counts per spot. Default is 100.
     min_genes : int, optional
@@ -62,8 +64,7 @@ def qc_from_h5ad(
 
     # Load AnnData at the specified resolution
     sdata = spatialdata.read_zarr(zarr_folder)
-    # adata = data.tables[f'square_{resolution}']
-    adata = sdata.tables[f'square_{resolution}']
+    adata = sdata.tables[resolution]
     adata.obs['sample'] = sample_id
 
     print(sdata)
@@ -135,6 +136,14 @@ def qc_from_h5ad(
     adata.obs[qc_flag_columns] = adata.obs[qc_flag_columns].astype("boolean")
     out_of_tissue_mask = adata.obs["in_tissue"] == 0
     adata.obs.loc[out_of_tissue_mask, qc_flag_columns] = pd.NA
+    in_tissue_mask = adata.obs["in_tissue"] == 1
+    global_outliers = adata.obs["global_outliers"].fillna(False).astype(bool)
+    local_outliers = adata.obs["local_outliers"].fillna(False).astype(bool)
+    valid_bins = in_tissue_mask & ~global_outliers & ~local_outliers
+    valid_obs = adata.obs.loc[valid_bins]
+    n_in_tissue = int(in_tissue_mask.sum())
+    n_valid_bins = int(valid_bins.sum())
+    valid_bins_fraction = n_valid_bins / n_in_tissue if n_in_tissue else float("nan")
 
     # save annotation to csv
     adata.obs.to_csv(f"{sample_id}_qc_annotated_obs.csv")
@@ -145,8 +154,15 @@ def qc_from_h5ad(
     # Collect QC summary
     summary_dict = {
         "Sample": sample_id,
+        "Bin size": resolution,
         "Total spots": adata.n_obs,
-        "In-tissue spots": (adata.obs['in_tissue'] == 1).sum(),
+        "In-tissue spots": n_in_tissue,
+        "Valid bins": n_valid_bins,
+        "Valid bins fraction": valid_bins_fraction,
+        "Mean UMI counts in valid bins": valid_obs["total_counts"].mean(),
+        "Mean genes in valid bins": valid_obs["n_genes_by_counts"].mean(),
+        "Mean mitochondrial % in valid bins": valid_obs["pct_counts_mt"].mean(),
+        "Mean novelty score in valid bins": valid_obs["novelty_score"].mean(),
         "Low number of UMI per spot": int(adata.obs["qc_lib_size"].sum()),
         "Low number of genes per spot": int(adata.obs["qc_detected"].sum()),
         "High % mitochondrial counts": int(adata.obs["qc_mito"].sum()),
@@ -161,13 +177,29 @@ def qc_from_h5ad(
 
     adata.obs[qc_flag_columns] = adata.obs[qc_flag_columns].astype(str)
 
+    # Create new annotation column for filtered QC metrics
+    adata.obs["total_counts_filtered"] = adata.obs["total_counts"].where(valid_bins, pd.NA)
+    adata.obs["n_genes_by_counts_filtered"] = adata.obs["n_genes_by_counts"].where(valid_bins, pd.NA)
+    adata.obs["pct_counts_mt_filtered"] = adata.obs["pct_counts_mt"].where(valid_bins, pd.NA)
+
+    # Crop the spatialdata object to the visium area
+    shape_key = f"{sample_id}_{resolution}"
+    minx, miny, maxx, maxy = sdata[shape_key].total_bounds
+    sdata_crop = sdata.query.bounding_box(
+        axes=("x", "y"),
+        min_coordinate=[minx-1000, miny-1000],
+        max_coordinate=[maxx+1000, maxy+1000],
+        target_coordinate_system=sample_id,
+    )
+
     # Spatial QC plot
     spatial_colors = [
         "total_counts",
         "n_genes_by_counts",
         "pct_counts_mt",
-        "global_outliers",
-        "local_outliers"
+        "total_counts_filtered",
+        "n_genes_by_counts_filtered",
+        "pct_counts_mt_filtered"
     ]
     with plt.rc_context({
         "font.size": 8,
@@ -180,21 +212,35 @@ def qc_from_h5ad(
         axs = axs.ravel()
 
         for i, color in enumerate(spatial_colors):
-            sdata.pl.render_shapes(  # pylint: disable=no-member
-                f"{sample_id}_square_{resolution}",
-                color=color,
-                cmap="viridis",
+
+            sample_np = pd.to_numeric(adata.obs[color], errors="coerce").dropna().to_numpy(dtype=float)
+            render_shapes_kwargs = {
+                "color": color,
+                "cmap": "viridis",
+                "fill_alpha": 0.5,
+                "outline_width": 0,
+            }
+            if sample_np.size > 0:
+                vmin = np.percentile(sample_np, 1)
+                vmax = np.percentile(sample_np, 99)
+                render_shapes_kwargs["norm"] = Normalize(vmin=vmin, vmax=vmax)
+
+            sdata_crop.pl.render_images( # pylint: disable=no-member
+                f"{sample_id}_hires_image",
+                cmap="gray",
+            ).pl.render_shapes(
+                f"{sample_id}_{resolution}",
+                **render_shapes_kwargs,
             ).pl.show(
                 coordinate_systems=sample_id,
-                title=color,
+                dpi=100,
                 ax=axs[i],
             )
             axs[i].set_title(color, fontsize=9)
-
-        axs[5].axis("off")
+            axs[i].set_axis_off()
 
         # More space between panels
-        fig.subplots_adjust(wspace=0.35, hspace=0.35)
+        fig.subplots_adjust(wspace=0.15, hspace=0.15)
 
         for a in fig.axes:
             if a not in axs.flat:
@@ -202,8 +248,12 @@ def qc_from_h5ad(
                 a.set_title("")   # clear colorbar title if present
                 a.tick_params(labelsize=7)
 
-        fig.savefig(f"{sample_id}_qc_spatial_plots.png")
-
+        fig.savefig(
+            f"{sample_id}_qc_spatial_plots.png",
+            dpi=100,
+            bbox_inches="tight",
+            pad_inches=0.05,
+        )
 
 def distribution_plots(adata, sample_id, min_counts, min_genes, max_mt):
     """
@@ -293,6 +343,14 @@ if __name__ == "__main__":
                         help="Path to input Zarr object (zarr file)")
     parser.add_argument("--sample", type=str,
                         help="Sample ID to process")
+    parser.add_argument("--resolution", type=str,
+                        help="Label of the table in the Zarr object pointing to the resolution to process")
+    parser.add_argument("--min-counts", type=int,
+                        help="Minimum counts threshold for spot filtering")
+    parser.add_argument("--min-genes", type=int,
+                        help="Minimum genes threshold for spot filtering")
+    parser.add_argument("--max-mt", type=int,
+                        help="Maximum mitochondrial counts percentage threshold for spot filtering")
     parser.add_argument("--versions-dict", type=str,
                         help="Return dictionary of versions used by the module and exit")
 
@@ -313,4 +371,11 @@ if __name__ == "__main__":
     else:
         if not args.zarr or not args.sample:
             parser.error("--zarr and --sample are required")
-        qc_from_h5ad(args.zarr, args.sample)
+        qc_from_h5ad(
+            args.zarr,
+            args.sample,
+            resolution = args.resolution,
+            min_counts = args.min_counts,
+            min_genes = args.min_genes,
+            max_mt = args.max_mt
+        )

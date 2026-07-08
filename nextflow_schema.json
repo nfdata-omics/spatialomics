@@ -43,11 +43,48 @@
                 }
             }
         },
-        "analysis_options": {
-            "title": "Analysis options",
+        "bin_level_matrix_analysis_options": {
+            "title": "Bin-level matrix analysis options",
             "type": "object",
             "fa_icon": "fas fa-sliders-h",
-            "description": "Parameters controlling spatial data processing and visualization.",
+            "description": "Parameters controlling bin-level matrix analysis and quality control.",
+            "properties": {
+                "bin_analysis_bin_size": {
+                    "type": "string",
+                    "default": "square_016um",
+                    "description": "Space Ranger binned output label used for bin-level matrix analysis.",
+                    "help_text": "For Visium HD data this is typically one of square_002um, square_008um, or square_016um.",
+                    "fa_icon": "fas fa-border-all"
+                },
+                "bin_analysis_min_counts": {
+                    "type": "integer",
+                    "default": 100,
+                    "minimum": 0,
+                    "description": "Minimum total counts threshold for bin-level quality control.",
+                    "fa_icon": "fas fa-filter"
+                },
+                "bin_analysis_min_genes": {
+                    "type": "integer",
+                    "default": 50,
+                    "minimum": 0,
+                    "description": "Minimum detected genes threshold for bin-level quality control.",
+                    "fa_icon": "fas fa-filter"
+                },
+                "bin_analysis_max_mt": {
+                    "type": "integer",
+                    "default": 20,
+                    "minimum": 0,
+                    "maximum": 100,
+                    "description": "Maximum mitochondrial counts percentage threshold for bin-level quality control.",
+                    "fa_icon": "fas fa-filter"
+                }
+            }
+        },
+        "cell_segmentation_options": {
+            "title": "Cell segmentation options",
+            "type": "object",
+            "fa_icon": "fas fa-draw-polygon",
+            "description": "Parameters controlling cell segmentation and microscopy coordinate handling.",
             "properties": {
                 "skip_segmentation": {
                     "type": "boolean",
@@ -63,7 +100,15 @@
                     "description": "Downsampling factor between full-resolution TIFF image coordinates and the SpatialData zarr coordinate system.",
                     "help_text": "Use this parameter when the coordinates stored in the SpatialData zarr are downsampled relative to the full-resolution microscopy and segmentation TIFF images.",
                     "fa_icon": "fas fa-compress-arrows-alt"
-                },
+                }
+            }
+        },
+        "bin_to_cell_mapping_options": {
+            "title": "Bin-to-cell mapping options",
+            "type": "object",
+            "fa_icon": "fas fa-project-diagram",
+            "description": "Parameters controlling Bin2Cell aggregation of spatial bins into cell-level data.",
+            "properties": {
                 "skip_bin2cell": {
                     "type": "boolean",
                     "default": false,
@@ -74,7 +119,7 @@
                 "bin2cell_bin_size": {
                     "type": "string",
                     "default": "square_002um",
-                    "description": "Space Ranger binned_outputs subdirectory used by Bin2Cell.",
+                    "description": "Space Ranger binned output label used by Bin2Cell in bin aggregation.",
                     "help_text": "For Visium HD data this is typically one of square_002um, square_008um, or square_016um.",
                     "fa_icon": "fas fa-border-all"
                 },
@@ -315,7 +360,13 @@
             "$ref": "#/$defs/input_output_options"
         },
         {
-            "$ref": "#/$defs/analysis_options"
+            "$ref": "#/$defs/bin_level_matrix_analysis_options"
+        },
+        {
+            "$ref": "#/$defs/cell_segmentation_options"
+        },
+        {
+            "$ref": "#/$defs/bin_to_cell_mapping_options"
         },
         {
             "$ref": "#/$defs/reference_genome_options"
