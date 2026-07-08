@@ -5,8 +5,10 @@ import importlib
 import importlib.metadata
 import argparse
 import sys
+from matplotlib.colors import Normalize
 import yaml
 
+import numpy as np
 import scipy as sp
 import pandas as pd
 import matplotlib
@@ -175,13 +177,29 @@ def qc_from_h5ad(
 
     adata.obs[qc_flag_columns] = adata.obs[qc_flag_columns].astype(str)
 
+    # Create new annotation column for filtered QC metrics
+    adata.obs["total_counts_filtered"] = adata.obs["total_counts"].where(valid_bins, pd.NA)
+    adata.obs["n_genes_by_counts_filtered"] = adata.obs["n_genes_by_counts"].where(valid_bins, pd.NA)
+    adata.obs["pct_counts_mt_filtered"] = adata.obs["pct_counts_mt"].where(valid_bins, pd.NA)
+
+    # Crop the spatialdata object to the visium area
+    shape_key = f"{sample_id}_{resolution}"
+    minx, miny, maxx, maxy = sdata[shape_key].total_bounds
+    sdata_crop = sdata.query.bounding_box(
+        axes=("x", "y"),
+        min_coordinate=[minx-1000, miny-1000],
+        max_coordinate=[maxx+1000, maxy+1000],
+        target_coordinate_system=sample_id,
+    )
+
     # Spatial QC plot
     spatial_colors = [
         "total_counts",
         "n_genes_by_counts",
         "pct_counts_mt",
-        "global_outliers",
-        "local_outliers"
+        "total_counts_filtered",
+        "n_genes_by_counts_filtered",
+        "pct_counts_mt_filtered"
     ]
     with plt.rc_context({
         "font.size": 8,
@@ -194,21 +212,35 @@ def qc_from_h5ad(
         axs = axs.ravel()
 
         for i, color in enumerate(spatial_colors):
-            sdata.pl.render_shapes(  # pylint: disable=no-member
+
+            sample_np = pd.to_numeric(adata.obs[color], errors="coerce").dropna().to_numpy(dtype=float)
+            render_shapes_kwargs = {
+                "color": color,
+                "cmap": "viridis",
+                "fill_alpha": 0.5,
+                "outline_width": 0,
+            }
+            if sample_np.size > 0:
+                vmin = np.percentile(sample_np, 1)
+                vmax = np.percentile(sample_np, 99)
+                render_shapes_kwargs["norm"] = Normalize(vmin=vmin, vmax=vmax)
+
+            sdata_crop.pl.render_images( # pylint: disable=no-member
+                f"{sample_id}_hires_image",
+                cmap="gray",
+            ).pl.render_shapes(
                 f"{sample_id}_{resolution}",
-                color=color,
-                cmap="viridis",
+                **render_shapes_kwargs,
             ).pl.show(
                 coordinate_systems=sample_id,
-                title=color,
+                dpi=100,
                 ax=axs[i],
             )
             axs[i].set_title(color, fontsize=9)
-
-        axs[5].axis("off")
+            axs[i].set_axis_off()
 
         # More space between panels
-        fig.subplots_adjust(wspace=0.35, hspace=0.35)
+        fig.subplots_adjust(wspace=0.15, hspace=0.15)
 
         for a in fig.axes:
             if a not in axs.flat:
@@ -216,8 +248,12 @@ def qc_from_h5ad(
                 a.set_title("")   # clear colorbar title if present
                 a.tick_params(labelsize=7)
 
-        fig.savefig(f"{sample_id}_qc_spatial_plots.png")
-
+        fig.savefig(
+            f"{sample_id}_qc_spatial_plots.png",
+            dpi=100,
+            bbox_inches="tight",
+            pad_inches=0.05,
+        )
 
 def distribution_plots(adata, sample_id, min_counts, min_genes, max_mt):
     """

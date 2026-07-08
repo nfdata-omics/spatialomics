@@ -28,6 +28,8 @@ process SPATIAL_QUALITY_CONTROL {
     export NUMBA_CACHE_DIR=\${TMPDIR:-/tmp}
     export MPLCONFIGDIR=\${TMPDIR:-/tmp}
     export XDG_CONFIG_HOME=\${TMPDIR:-/tmp}
+    export XDG_CACHE_HOME=\${TMPDIR:-/tmp}/.cache
+    mkdir -p "\$XDG_CACHE_HOME/fontconfig"
 
     cat << END_SCRIPT > spatial_quality_control.py
 ${file("${moduleDir}/spatial_quality_control.py").text}
@@ -53,6 +55,8 @@ END_SCRIPT
     export NUMBA_CACHE_DIR=\${TMPDIR:-/tmp}
     export MPLCONFIGDIR=\${TMPDIR:-/tmp}
     export XDG_CONFIG_HOME=\${TMPDIR:-/tmp}
+    export XDG_CACHE_HOME=\${TMPDIR:-/tmp}/.cache
+    mkdir -p "\$XDG_CACHE_HOME/fontconfig"
 
     cat << END_SCRIPT > spatial_quality_control.py
 ${file("${moduleDir}/spatial_quality_control.py").text}
