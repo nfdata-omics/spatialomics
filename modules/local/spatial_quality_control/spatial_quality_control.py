@@ -134,6 +134,14 @@ def qc_from_h5ad(
     adata.obs[qc_flag_columns] = adata.obs[qc_flag_columns].astype("boolean")
     out_of_tissue_mask = adata.obs["in_tissue"] == 0
     adata.obs.loc[out_of_tissue_mask, qc_flag_columns] = pd.NA
+    in_tissue_mask = adata.obs["in_tissue"] == 1
+    global_outliers = adata.obs["global_outliers"].fillna(False).astype(bool)
+    local_outliers = adata.obs["local_outliers"].fillna(False).astype(bool)
+    valid_bins = in_tissue_mask & ~global_outliers & ~local_outliers
+    valid_obs = adata.obs.loc[valid_bins]
+    n_in_tissue = int(in_tissue_mask.sum())
+    n_valid_bins = int(valid_bins.sum())
+    valid_bins_fraction = n_valid_bins / n_in_tissue if n_in_tissue else float("nan")
 
     # save annotation to csv
     adata.obs.to_csv(f"{sample_id}_qc_annotated_obs.csv")
@@ -144,8 +152,15 @@ def qc_from_h5ad(
     # Collect QC summary
     summary_dict = {
         "Sample": sample_id,
+        "Bin size": resolution,
         "Total spots": adata.n_obs,
-        "In-tissue spots": (adata.obs['in_tissue'] == 1).sum(),
+        "In-tissue spots": n_in_tissue,
+        "Valid bins": n_valid_bins,
+        "Valid bins fraction": valid_bins_fraction,
+        "Mean UMI counts in valid bins": valid_obs["total_counts"].mean(),
+        "Mean genes in valid bins": valid_obs["n_genes_by_counts"].mean(),
+        "Mean mitochondrial % in valid bins": valid_obs["pct_counts_mt"].mean(),
+        "Mean novelty score in valid bins": valid_obs["novelty_score"].mean(),
         "Low number of UMI per spot": int(adata.obs["qc_lib_size"].sum()),
         "Low number of genes per spot": int(adata.obs["qc_detected"].sum()),
         "High % mitochondrial counts": int(adata.obs["qc_mito"].sum()),
