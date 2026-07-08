@@ -43,7 +43,13 @@ def collect_qc_metrics_files(metrics_files, output_file):
     combined.to_csv(output_file, index=False)
 
 
-def plot_qc_distributions(annotated_obs_files, output_file):
+def plot_qc_distributions(
+    annotated_obs_files,
+    output_file,
+    min_counts=None,
+    min_genes=None,
+    max_mt=None,
+):
     """
     Plot QC distributions from annotated obs summary files.
 
@@ -54,6 +60,16 @@ def plot_qc_distributions(annotated_obs_files, output_file):
 
     output_file : str
         Path to output HTML file containing QC distribution plots.
+
+    min_counts : int, optional
+        Minimum counts threshold to draw on the total counts histogram.
+
+    min_genes : int, optional
+        Minimum genes threshold to draw on the detected genes histogram.
+
+    max_mt : int, optional
+        Maximum mitochondrial counts percentage threshold to draw on the
+        mitochondrial percentage histogram.
 
     Returns
     -------
@@ -71,13 +87,19 @@ def plot_qc_distributions(annotated_obs_files, output_file):
     combined = pd.concat(dfs, ignore_index=True)
 
     metrics = ["total_counts", "n_genes_by_counts", "pct_counts_mt"]
+    thresholds = {
+        "total_counts": (min_counts, "Min counts"),
+        "n_genes_by_counts": (min_genes, "Min genes"),
+        "pct_counts_mt": (max_mt, "Max mt"),
+    }
 
     with open(output_file, "w", encoding="utf-8") as f:
         f.write("<html><head><meta charset='utf-8'><title>QC plots</title></head><body>\n")
 
         for i, metric in enumerate(metrics):
 
-            fig = qc_histogram_figure(combined, metric)
+            threshold, threshold_label = thresholds[metric]
+            fig = qc_histogram_figure(combined, metric, threshold, threshold_label)
             if i == 0:
                 f.write(fig.to_html(full_html=False, include_plotlyjs="cdn"))
             else:
@@ -136,7 +158,7 @@ def histogram_edges(values, max_bins=100, minimum_bin_width=1.0):
     return edges
 
 
-def qc_histogram_figure(combined, metric):
+def qc_histogram_figure(combined, metric, threshold=None, threshold_label=None):
     """Create an interactive normalized histogram without embedding raw observations."""
     fig = go.Figure()
     palette = px.colors.qualitative.Plotly
@@ -184,6 +206,29 @@ def qc_histogram_figure(combined, metric):
         hovermode="x unified",
         legend_title_text="Sample",
     )
+
+    if threshold is not None:
+        fig.add_shape(
+            type="line",
+            x0=threshold,
+            x1=threshold,
+            y0=0,
+            y1=1,
+            xref="x",
+            yref="paper",
+            line={"color": "black", "width": 2, "dash": "dash"},
+        )
+        if threshold_label is not None:
+            fig.add_annotation(
+                x=threshold,
+                y=1,
+                xref="x",
+                yref="paper",
+                text=f"{threshold_label} ({threshold:g})",
+                showarrow=False,
+                yanchor="bottom",
+                font={"color": "black"},
+            )
 
     return fig
 
@@ -235,7 +280,12 @@ if __name__ == "__main__":
                         help="List of annotated obs summary CSV files to collect")
     parser.add_argument("--versions-dict", type=str,
                         help="Return dictionary of versions used by the module and exit")
-
+    parser.add_argument("--min-counts", type=int,
+                        help="Minimum counts threshold for spot filtering")
+    parser.add_argument("--min-genes", type=int,
+                        help="Minimum genes threshold for spot filtering")
+    parser.add_argument("--max-mt", type=int,
+                        help="Maximum mitochondrial counts percentage threshold for spot filtering")
     args = parser.parse_args()
 
     if args.versions_dict:
@@ -253,4 +303,10 @@ if __name__ == "__main__":
         collect_qc_metrics_files(qc_metrics_csv_files, "qc_metrics.csv")
 
         annotated_obs_csv_files = args.annotated_obs
-        plot_qc_distributions(annotated_obs_csv_files, "qc_distributions.html")
+        plot_qc_distributions(
+            annotated_obs_csv_files,
+            "qc_distributions.html",
+            args.min_counts,
+            args.min_genes,
+            args.max_mt,
+        )

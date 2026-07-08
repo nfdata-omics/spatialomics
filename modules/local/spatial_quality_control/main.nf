@@ -6,6 +6,10 @@ process SPATIAL_QUALITY_CONTROL {
 
     input:
     tuple val(meta), path(zarr_folder)
+    val resolution
+    val min_counts
+    val min_genes
+    val max_mt
 
     output:
     path "versions.yml",                             emit: versions
@@ -31,7 +35,11 @@ END_SCRIPT
 
     python3 spatial_quality_control.py \
         --zarr "${zarr_folder}" \
-        --sample "${prefix}"
+        --sample "${prefix}" \
+        --resolution "${resolution}" \
+        --min-counts "${min_counts}" \
+        --min-genes "${min_genes}" \
+        --max-mt "${max_mt}"
 
     mv ${prefix}_qc_spatial_plots.png ${prefix}_qc_mqc.png
 

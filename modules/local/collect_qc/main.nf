@@ -7,6 +7,9 @@ process COLLECT_QC {
     input:
     path annotated_obs_files
     path metrics_files
+    val min_counts
+    val min_genes
+    val max_mt
 
     output:
     path "qc_distributions.html", emit: distributions
@@ -28,7 +31,10 @@ END_SCRIPT
 
     python3 collect_qc.py \
         --qc-metrics ${metrics_files.join(" ")} \
-        --annotated-obs ${annotated_obs_files.join(" ")}
+        --annotated-obs ${annotated_obs_files.join(" ")} \
+        --min-counts "${min_counts}" \
+        --min-genes "${min_genes}" \
+        --max-mt "${max_mt}"
 
     python3 collect_qc.py \
         --versions-dict "${task.process}" > versions.yml

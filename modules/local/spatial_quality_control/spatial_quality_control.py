@@ -22,7 +22,7 @@ matplotlib.use("Agg")
 def qc_from_h5ad(
     zarr_folder,
     sample_id,
-    resolution="016um",
+    resolution="square_016um",
     min_counts=100,
     min_genes=50,
     max_mt=20,
@@ -42,7 +42,7 @@ def qc_from_h5ad(
     sample_id : str
         Unique identifier for the sample being processed.
     resolution : str, optional
-        Resolution of the spatial data to process. Default is "016um".
+        Label of the table in the Zarr object pointing to the resolution to process. Default is "square_016um".
     min_counts : int, optional
         Minimum number of UMI counts per spot. Default is 100.
     min_genes : int, optional
@@ -62,8 +62,7 @@ def qc_from_h5ad(
 
     # Load AnnData at the specified resolution
     sdata = spatialdata.read_zarr(zarr_folder)
-    # adata = data.tables[f'square_{resolution}']
-    adata = sdata.tables[f'square_{resolution}']
+    adata = sdata.tables[resolution]
     adata.obs['sample'] = sample_id
 
     print(sdata)
@@ -181,7 +180,7 @@ def qc_from_h5ad(
 
         for i, color in enumerate(spatial_colors):
             sdata.pl.render_shapes(  # pylint: disable=no-member
-                f"{sample_id}_square_{resolution}",
+                f"{sample_id}_{resolution}",
                 color=color,
                 cmap="viridis",
             ).pl.show(
@@ -293,6 +292,14 @@ if __name__ == "__main__":
                         help="Path to input Zarr object (zarr file)")
     parser.add_argument("--sample", type=str,
                         help="Sample ID to process")
+    parser.add_argument("--resolution", type=str,
+                        help="Label of the table in the Zarr object pointing to the resolution to process")
+    parser.add_argument("--min-counts", type=int,
+                        help="Minimum counts threshold for spot filtering")
+    parser.add_argument("--min-genes", type=int,
+                        help="Minimum genes threshold for spot filtering")
+    parser.add_argument("--max-mt", type=int,
+                        help="Maximum mitochondrial counts percentage threshold for spot filtering")
     parser.add_argument("--versions-dict", type=str,
                         help="Return dictionary of versions used by the module and exit")
 
@@ -313,4 +320,11 @@ if __name__ == "__main__":
     else:
         if not args.zarr or not args.sample:
             parser.error("--zarr and --sample are required")
-        qc_from_h5ad(args.zarr, args.sample)
+        qc_from_h5ad(
+            args.zarr,
+            args.sample,
+            resolution = args.resolution,
+            min_counts = args.min_counts,
+            min_genes = args.min_genes,
+            max_mt = args.max_mt
+        )
