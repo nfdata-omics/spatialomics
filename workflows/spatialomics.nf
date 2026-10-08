@@ -180,7 +180,11 @@ workflow SPATIALOMICS {
         ch_microscopy_images = channel.empty()
         ch_crop_areas = channel.empty()
     } else {
+        // A missing image is represented by an empty path value inside an emitted tuple,
+        // not by an empty channel. Remove those tuples so image-dependent processes are
+        // skipped idiomatically for samples without a microscopy image.
         ch_microscopy_images = ch_prepared_microscopy_images
+            .filter { _meta, image -> image }
         ch_reads.map { meta, _fastq -> [["id": meta.id], meta.crop_areas ] }
             .mix ( ch_spaceranger_outs.map { meta, _out -> [["id": meta.id], meta.crop_areas ] } )
             .set { ch_crop_areas }
