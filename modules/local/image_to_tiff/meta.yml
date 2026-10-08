@@ -4,7 +4,6 @@ keywords:
   - microscopy
   - tiff
   - bigtiff
-  - czi
   - btf
   - memmap
 tools:
@@ -14,12 +13,6 @@ tools:
       homepage: https://github.com/cgohlke/tifffile
       documentation: https://iridescent.ink/tifffile/tifffile.html
       licence: ["BSD-3-Clause"]
-  - czifile:
-      description: |
-        czifile reads Carl Zeiss Image CZI files.
-      homepage: https://github.com/cgohlke/czifile
-      documentation: https://pypi.org/project/czifile/
-      licence: ["BSD-3-Clause"]
 input:
   - - meta:
         type: map
@@ -28,8 +21,8 @@ input:
           e.g. [ id:'NFG021_002' ]
     - input_image:
         type: file
-        description: Input microscopy image in CZI, BTF, TIFF, or BigTIFF-compatible format
-        pattern: "*.{czi,btf,tif,tiff}"
+        description: Input microscopy image in TIFF or BigTIFF-compatible format
+        pattern: "*.{btf,tif,tiff}"
 output:
   tiff:
     - - meta:
