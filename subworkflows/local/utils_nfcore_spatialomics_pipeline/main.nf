@@ -90,16 +90,15 @@ workflow PIPELINE_INITIALISATION {
     // Create channel from input file provided through params.input
     //
 
+    def samplesheet_list = samplesheetToList(input, "${projectDir}/assets/schema_input.json")
+    warnPrecomputedRegistrationAssumption(samplesheet_list)
+
     channel
-        .fromList(samplesheetToList(input, "${projectDir}/assets/schema_input.json"))
+        .fromList(samplesheet_list)
         .filter { _meta, fastq_1, _fastq_2, _spaceranger -> fastq_1 }
         .map {
             meta, fastq_1, fastq_2, _spaceranger ->
-                if (!fastq_2) {
-                    return [ meta.id, meta + [ single_end:true ], [ fastq_1 ] ]
-                } else {
-                    return [ meta.id, meta + [ single_end:false ], [ fastq_1, fastq_2 ] ]
-                }
+                return [ meta.id, meta + [ single_end:false ], [ fastq_1, fastq_2 ] ]
         }
         .groupTuple()
         .map { samplesheet ->
@@ -112,7 +111,7 @@ workflow PIPELINE_INITIALISATION {
         .set { ch_samplesheet }
 
     channel
-        .fromList(samplesheetToList(params.input, "${projectDir}/assets/schema_input.json"))
+        .fromList(samplesheet_list)
         .filter { _meta, _fastq_1, _fastq_2, spaceranger -> spaceranger }
         .map { meta, _fastq_1, _fastq_2, spaceranger -> [meta, spaceranger] }
         .set { ch_spaceranger_outs }
@@ -186,12 +185,6 @@ def validateInputParameters() {
 def validateInputSamplesheet(input) {
     def (metas, fastqs) = input[1..2]
 
-    // Check that multiple runs of the same sample are of the same datatype i.e. single-end / paired-end
-    def endedness_ok = metas.collect{ meta -> meta.single_end }.unique().size == 1
-    if (!endedness_ok) {
-        error("Please check input samplesheet -> Multiple runs of a sample must be of the same datatype i.e. single-end or paired-end: ${metas[0].id}")
-    }
-
     def unique_crop_areas = metas.collect { meta -> meta.crop_areas ?: "" }.unique()
     if (unique_crop_areas.size() > 1) {
         error(
@@ -201,6 +194,26 @@ def validateInputSamplesheet(input) {
     }
 
     return [ metas[0], fastqs ]
+}
+
+// Warn when an external microscopy image is paired with pre-computed Space Ranger output.
+// In this input mode Space Ranger is not run, so the pipeline cannot establish or verify
+// the registration between the supplied image and the coordinates in the output directory.
+def warnPrecomputedRegistrationAssumption(samplesheet) {
+    def affected_samples = samplesheet
+        .findAll { row -> row[3] && row[0].image }
+        .collect { row -> row[0].id }
+        .unique()
+        .sort()
+
+    if (affected_samples) {
+        log.warn(
+            "Samples ${affected_samples.join(', ')} provide both pre-computed Space Ranger output " +
+            "and a microscopy image. The pipeline assumes that the image is correctly registered " +
+            "to the spatial coordinates in the Space Ranger output; this registration is not " +
+            "established or verified by the pipeline."
+        )
+    }
 }
 //
 // Get attribute from genome config file e.g. fasta

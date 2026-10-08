@@ -25,7 +25,7 @@
                 "format": "file-path",
                 "exists": true,
                 "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.f(ast)?q\\.gz$",
-                "errorMessage": "FastQ file for reads 2 cannot contain spaces and must have extension '.fq.gz' or '.fastq.gz'"
+                "errorMessage": "FastQ file for reads 2 must be provided with reads 1, cannot contain spaces and must have extension '.fq.gz' or '.fastq.gz'"
             },
             "image": {
                 "type": "string",
@@ -81,6 +81,10 @@
                 "errorMessage": "Path to Space Ranger output directory must exist"
             }
         },
-        "anyOf": [{ "required": ["sample", "fastq_1"] }, { "required": ["sample", "spaceranger"] }]
+        "dependentRequired": {
+            "fastq_1": ["fastq_2"],
+            "fastq_2": ["fastq_1"]
+        },
+        "anyOf": [{ "required": ["sample", "fastq_1", "fastq_2"] }, { "required": ["sample", "spaceranger"] }]
     }
 }
