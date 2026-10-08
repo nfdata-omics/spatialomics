@@ -1,6 +1,6 @@
 process BIN2CELL {
     tag "$meta.id"
-    label 'process_medium'
+    label 'process_medium', 'process_high_memory'
 
     conda "${moduleDir}/environment.yml"
     container 'quay.io/biocontainers/bin2cell:0.3.4--pyhdfd78af_0'

@@ -1,6 +1,6 @@
 process COLLECT_SPACERANGER_METRICS {
     tag "all samples"
-    label 'process_low'
+    label 'process_single'
 
     container 'docker.io/nfdata/spatialdata:v0.7.2'
 

@@ -1,6 +1,6 @@
 process ASSEMBLE_IMAGING_MULTIQC {
     tag "$meta.id"
-    label 'process_low'
+    label 'process_single'
 
     container 'docker.io/nfdata/spatialdata:v0.7.2'
 

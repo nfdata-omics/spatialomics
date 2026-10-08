@@ -1,6 +1,6 @@
 process COLLECT_QC {
     tag "all samples"
-    label 'process_low'
+    label 'process_single'
 
     container 'docker.io/nfdata/plotly:v6.5.2'
 
