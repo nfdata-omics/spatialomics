@@ -1,0 +1,7 @@
+name: czi_to_spaceranger_tiff
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - bioconda::bftools=8.0.0

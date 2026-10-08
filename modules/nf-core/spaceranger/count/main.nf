@@ -1,6 +1,6 @@
 process SPACERANGER_COUNT {
     tag "$meta.id"
-    label 'process_high'
+    label 'process_high', 'process_high_memory'
 
     container "nf-core/spaceranger:3.1.3"
 

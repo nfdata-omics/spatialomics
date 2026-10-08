@@ -1,0 +1,85 @@
+name: czi_to_spaceranger_tiff
+description: Convert the full-resolution main image of a Zeiss CZI file to an RGB BigTIFF accepted by Space Ranger
+keywords:
+  - microscopy
+  - czi
+  - tiff
+  - bigtiff
+  - spaceranger
+tools:
+  - bioformats:
+      description: Bio-Formats reads proprietary microscopy formats and converts them to open image formats.
+      homepage: https://www.openmicroscopy.org/bio-formats/
+      documentation: https://bio-formats.readthedocs.io/
+      licence: ["GPL-2.0-or-later"]
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information.
+          e.g. [ id:'NFG059_001' ]
+    - input_image:
+        type: file
+        description: Zeiss CZI microscopy image
+        pattern: "*.czi"
+output:
+  tiff:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "*_spaceranger.tif":
+          type: file
+          description: Uncompressed, tiled, full-resolution RGB BigTIFF generated from CZI series 0
+          pattern: "*_spaceranger.tif"
+  info:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "*_spaceranger_info.txt":
+          type: file
+          description: Bio-Formats metadata used to validate the converted TIFF
+          pattern: "*_spaceranger_info.txt"
+  versions_bioformats:
+    - - ${task.process}:
+          type: string
+          description: The process the versions were collected from
+      - bioformats:
+          type: string
+          description: The software name
+      - 8.0.0:
+          type: string
+          description: The software version
+  versions_container:
+    - - ${task.process}:
+          type: string
+          description: The process the versions were collected from
+      - container:
+          type: string
+          description: The runtime environment type
+      - quay.io/biocontainers/bftools:8.0.0--hdfd78af_0:
+          type: string
+          description: The container image used by the module
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: The process the versions were collected from
+      - bioformats:
+          type: string
+          description: The software name
+      - 8.0.0:
+          type: string
+          description: The software version
+    - - ${task.process}:
+          type: string
+          description: The process the versions were collected from
+      - container:
+          type: string
+          description: The runtime environment type
+      - quay.io/biocontainers/bftools:8.0.0--hdfd78af_0:
+          type: string
+          description: The container image used by the module
+containers:
+  docker:
+    linux/amd64:
+      name: quay.io/biocontainers/bftools:8.0.0--hdfd78af_0

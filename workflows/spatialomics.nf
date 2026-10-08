@@ -11,6 +11,7 @@ include { SPACERANGER_TO_ZARR         } from '../modules/local/spaceranger_to_za
 include { TAR                         } from '../modules/nf-core/tar/main'
 include { SPATIAL_QUALITY_CONTROL     } from '../modules/local/spatial_quality_control/main'
 include { COLLECT_QC                  } from '../modules/local/collect_qc/main'
+include { CZI_TO_SPACERANGER_TIFF     } from '../modules/local/czi_to_spaceranger_tiff/main'
 include { IMAGE_TO_TIFF               } from '../modules/local/image_to_tiff/main'
 include { VISIUM_BOUNDS               } from '../modules/local/visium_bounds/main'
 include { CELLPOSE_SEGMENTATION       } from '../modules/local/cellpose_segmentation/main'
@@ -74,10 +75,38 @@ workflow SPATIALOMICS {
     ch_versions = ch_versions.mix(PREPARE_FASTQ.out.versions)
     ch_multiqc_files = ch_multiqc_files.mix(PREPARE_FASTQ.out.multiqc_files)
 
+    // Space Ranger does not accept CZI directly. Convert CZI images once and reuse the
+    // resulting full-resolution RGB BigTIFF throughout the rest of the workflow.
+    ch_images_to_prepare = ch_reads.map { meta, _fastq -> [["id": meta.id], meta.image] }
+    // If segmentation is not being skipped, also include the images provided for pre-computed Space Ranger outputs
+    if ( !params.skip_segmentation ) {
+        ch_images_to_prepare = ch_images_to_prepare.mix(
+            ch_spaceranger_outs.map { meta, _out -> [["id": meta.id], meta.image] }
+        )
+    }
+
+    // Select only CZI images for conversion to Space Ranger-compatible TIFF, and pass through any other image formats unchanged
+    ch_images_to_prepare
+        .branch { _meta, image ->
+            czi: image && image.toString().toLowerCase().endsWith('.czi')
+            passthrough: true
+        }
+        .set { ch_images_by_format }
+
+    CZI_TO_SPACERANGER_TIFF(
+        ch_images_by_format.czi
+    )
+
+    CZI_TO_SPACERANGER_TIFF.out.tiff
+        .mix(ch_images_by_format.passthrough)
+        .set { ch_prepared_microscopy_images }
+
     ch_reads
-        .multiMap { meta, fastq ->
-            reads: [ ["id": meta.id], fastq ]
-            slide_and_img: [ ["id": meta.id], meta.image, meta.slide, meta.area, meta.cytaimage, meta.darkimage, meta.colorizedimage, meta.alignment, meta.slidefile ]
+        .map { meta, fastq -> [["id": meta.id], meta, fastq] }
+        .join(ch_prepared_microscopy_images)
+        .multiMap { sample_meta, meta, fastq, image ->
+            reads: [ sample_meta, fastq ]
+            slide_and_img: [ sample_meta, image, meta.slide, meta.area, meta.cytaimage, meta.darkimage, meta.colorizedimage, meta.alignment, meta.slidefile ]
         }
         .set { ch_reads_with_meta }
 
@@ -151,9 +180,7 @@ workflow SPATIALOMICS {
         ch_microscopy_images = channel.empty()
         ch_crop_areas = channel.empty()
     } else {
-        ch_reads.map { meta, _fastq -> [["id": meta.id], meta.image] }
-            .mix ( ch_spaceranger_outs.map { meta, _out -> [["id": meta.id], meta.image] } )
-            .set { ch_microscopy_images }
+        ch_microscopy_images = ch_prepared_microscopy_images
         ch_reads.map { meta, _fastq -> [["id": meta.id], meta.crop_areas ] }
             .mix ( ch_spaceranger_outs.map { meta, _out -> [["id": meta.id], meta.crop_areas ] } )
             .set { ch_crop_areas }
