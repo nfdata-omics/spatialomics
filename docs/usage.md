@@ -4,51 +4,86 @@
 
 ## Introduction
 
-<!-- TODO nf-core: Add documentation about anything specific to running your pipeline. For general topics, please point to (and add to) the main nf-core website. -->
-
 ## Samplesheet input
 
-You will need to create a samplesheet with information about the samples you would like to analyse before running the pipeline. Use this parameter to specify its location. It has to be a comma-separated file with 3 columns, and a header row as shown in the examples below.
+You will need to create a samplesheet with information about the samples you would like to analyse before running the pipeline. Use this parameter to specify its location. It must be a comma-separated file with a header row. Each sample must provide either paired-end Visium sequencing reads in both `fastq_1` and `fastq_2`, or a pre-computed Space Ranger output directory in `spaceranger`.
 
 ```bash
 --input '[path to samplesheet file]'
 ```
+
+### Input use cases
+
+The pipeline currently supports three main input use cases.
+
+#### FASTQ files, microscopy image, and manual alignment
+
+Provide `fastq_1`, `fastq_2`, the microscope H&E image in `image`, the instrument-generated CytAssist image in `cytaimage`, and `manual_alignment`. The pipeline runs `spaceranger count` and passes the JSON file in `manual_alignment` through the Space Ranger `--loupe-alignment` option. The spatial registration used by Space Ranger is therefore the one encoded in the supplied alignment file.
+
+```csv title="samplesheet.csv"
+sample,fastq_1,fastq_2,image,cytaimage,manual_alignment,slide,area
+SAMPLE_A,SAMPLE_A_R1.fastq.gz,SAMPLE_A_R2.fastq.gz,SAMPLE_A_HE.tif,SAMPLE_A_CytAssist.tif,SAMPLE_A_alignment.json,V10A01-123,A1
+```
+
+#### FASTQ files and microscopy image without manual alignment
+
+Provide `fastq_1`, `fastq_2`, the microscope H&E image in `image`, and the instrument-generated CytAssist image in `cytaimage`, leaving `manual_alignment` empty. The pipeline runs `spaceranger count` without `--loupe-alignment`, so Space Ranger performs its automatic registration of the microscope image to the CytAssist image and capture area.
+
+```csv title="samplesheet.csv"
+sample,fastq_1,fastq_2,image,cytaimage,manual_alignment,slide,area
+SAMPLE_B,SAMPLE_B_R1.fastq.gz,SAMPLE_B_R2.fastq.gz,SAMPLE_B_HE.tif,SAMPLE_B_CytAssist.tif,,V10A01-456,B1
+```
+
+#### Pre-computed Space Ranger output and microscopy image
+
+Provide the Space Ranger `outs` directory in `spaceranger` and the corresponding H&E image in `image`. The pipeline skips `spaceranger count` for that sample and starts from the downstream conversion and analysis steps.
+
+```csv title="samplesheet.csv"
+sample,spaceranger,image
+SAMPLE_C,/path/to/SAMPLE_C/outs,/path/to/SAMPLE_C_HE.tif
+```
+
+> [!WARNING]
+> In this use case, the pipeline assumes that the supplied image is already correctly registered to the spatial coordinates contained in the Space Ranger output. It does not establish or automatically verify this registration. The geometric overlap check and registration plots can reveal gross or visually apparent mismatches, but they do not prove that the image and coordinates belong to the same registered dataset.
+
+### Optional microscopy image and image-dependent workflows
+
+The FASTQ use cases documented here assume a CytAssist-enabled assay. The instrument-generated `cytaimage` is therefore required when the pipeline runs `spaceranger count`. The `image` column, which represents the separate microscope H&E image, is optional for Space Ranger and when starting from pre-computed Space Ranger output. For samples without this image, the pipeline automatically omits the image-dependent downstream processes by filtering those samples out of the corresponding input channel. Image-independent processing of the Space Ranger output and spatial count quality control can still run. This behavior is applied per sample: samples with an image can still run these steps in the same pipeline execution. Use `--skip_segmentation` to disable these image-dependent processes globally, including for samples that do provide an image.
+
+For the CytAssist-enabled FASTQ inputs considered here, `cytaimage` is required. A separate microscope image in `image`, `darkimage`, or `colorizedimage` is optional for Space Ranger. When starting from pre-computed Space Ranger output, none of these images is needed to rerun `spaceranger count`, because that step is skipped. An `image` is only needed if the downstream image-dependent analyses are desired. `--skip_segmentation` controls those downstream analyses; it does not change Space Ranger's own input requirements.
 
 ### Multiple runs of the same sample
 
 The `sample` identifiers have to be the same when you have re-sequenced the same sample more than once e.g. to increase sequencing depth. The pipeline will concatenate the raw reads before performing any downstream analysis. Below is an example for the same sample sequenced across 3 lanes:
 
 ```csv title="samplesheet.csv"
-sample,fastq_1,fastq_2
-CONTROL_REP1,AEG588A1_S1_L002_R1_001.fastq.gz,AEG588A1_S1_L002_R2_001.fastq.gz
-CONTROL_REP1,AEG588A1_S1_L003_R1_001.fastq.gz,AEG588A1_S1_L003_R2_001.fastq.gz
-CONTROL_REP1,AEG588A1_S1_L004_R1_001.fastq.gz,AEG588A1_S1_L004_R2_001.fastq.gz
+sample,fastq_1,fastq_2,image,cytaimage,slide,area
+CONTROL_REP1,AEG588A1_S1_L002_R1_001.fastq.gz,AEG588A1_S1_L002_R2_001.fastq.gz,CONTROL_REP1_HE.tif,CONTROL_REP1_CytAssist.tif,V10A01-123,A1
+CONTROL_REP1,AEG588A1_S1_L003_R1_001.fastq.gz,AEG588A1_S1_L003_R2_001.fastq.gz,CONTROL_REP1_HE.tif,CONTROL_REP1_CytAssist.tif,V10A01-123,A1
+CONTROL_REP1,AEG588A1_S1_L004_R1_001.fastq.gz,AEG588A1_S1_L004_R2_001.fastq.gz,CONTROL_REP1_HE.tif,CONTROL_REP1_CytAssist.tif,V10A01-123,A1
 ```
 
 ### Full samplesheet
 
-The pipeline will auto-detect whether a sample is single- or paired-end using the information provided in the samplesheet. The samplesheet can have as many columns as you desire, however, there is a strict requirement for the first 3 columns to match those defined in the table below.
+FASTQ input must contain the paired R1 and R2 files produced for a Visium library. The supported columns are listed below. Columns that are not relevant to a particular input use case can be left empty or omitted.
 
-A final samplesheet file consisting of both single- and paired-end data may look something like the one below. This is for 6 samples, where `TREATMENT_REP3` has been sequenced twice.
+| Column             | Description                                                                                                                                                                               |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sample`           | Required unique sample identifier without whitespace. Use the same identifier for multiple sequencing runs of one sample.                                                                 |
+| `fastq_1`          | Read 1 FASTQ file, gzip-compressed with extension `.fastq.gz` or `.fq.gz`. Required when `spaceranger` is not supplied.                                                                   |
+| `fastq_2`          | Read 2 FASTQ file, gzip-compressed with extension `.fastq.gz` or `.fq.gz`. Required together with `fastq_1`.                                                                              |
+| `image`            | Microscope H&E image. Optional for Space Ranger, but required for the downstream image-dependent analyses described above.                                                                |
+| `cytaimage`        | CytAssist instrument image passed to `spaceranger count --cytaimage`. Required for the CytAssist-enabled FASTQ inputs considered here; not required with pre-computed Space Ranger input. |
+| `slide`            | Slide identifier passed to Space Ranger.                                                                                                                                                  |
+| `area`             | Capture area passed to Space Ranger.                                                                                                                                                      |
+| `darkimage`        | Optional dark image passed to `spaceranger count --darkimage`.                                                                                                                            |
+| `colorizedimage`   | Optional colorized image passed to `spaceranger count --colorizedimage`.                                                                                                                  |
+| `manual_alignment` | Optional Space Ranger/Loupe alignment JSON passed to `spaceranger count --loupe-alignment`.                                                                                               |
+| `slidefile`        | Optional slide-layout file passed to `spaceranger count --slidefile`.                                                                                                                     |
+| `crop_areas`       | Optional downstream visualization regions in sample coordinates, formatted as `x0:y0:x1:y1`; separate multiple regions with semicolons.                                                   |
+| `spaceranger`      | Path to a pre-computed Space Ranger `outs` directory. Required when `fastq_1` is not supplied.                                                                                            |
 
-```csv title="samplesheet.csv"
-sample,fastq_1,fastq_2
-CONTROL_REP1,AEG588A1_S1_L002_R1_001.fastq.gz,AEG588A1_S1_L002_R2_001.fastq.gz
-CONTROL_REP2,AEG588A2_S2_L002_R1_001.fastq.gz,AEG588A2_S2_L002_R2_001.fastq.gz
-CONTROL_REP3,AEG588A3_S3_L002_R1_001.fastq.gz,AEG588A3_S3_L002_R2_001.fastq.gz
-TREATMENT_REP1,AEG588A4_S4_L003_R1_001.fastq.gz,
-TREATMENT_REP2,AEG588A5_S5_L003_R1_001.fastq.gz,
-TREATMENT_REP3,AEG588A6_S6_L003_R1_001.fastq.gz,
-TREATMENT_REP3,AEG588A6_S6_L004_R1_001.fastq.gz,
-```
-
-| Column    | Description                                                                                                                                                                            |
-| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `sample`  | Custom sample name. This entry will be identical for multiple sequencing libraries/runs from the same sample. Spaces in sample names are automatically converted to underscores (`_`). |
-| `fastq_1` | Full path to FastQ file for Illumina short reads 1. File has to be gzipped and have the extension ".fastq.gz" or ".fq.gz".                                                             |
-| `fastq_2` | Full path to FastQ file for Illumina short reads 2. File has to be gzipped and have the extension ".fastq.gz" or ".fq.gz".                                                             |
-
-An [example samplesheet](../assets/samplesheet.csv) has been provided with the pipeline.
+An [example samplesheet](../assets/samplesheet.csv) covering the input use cases described above is provided with the pipeline.
 
 ## Running the pipeline
 

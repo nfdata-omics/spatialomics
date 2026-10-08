@@ -1,0 +1,4 @@
+sample,fastq_1,fastq_2,image,cytaimage,slide,area,darkimage,colorizedimage,manual_alignment,slidefile,crop_areas,spaceranger
+SAMPLE_A,SAMPLE_A_R1.fastq.gz,SAMPLE_A_R2.fastq.gz,SAMPLE_A_HE.tif,SAMPLE_A_CytAssist.tif,V10A01-123,A1,,,SAMPLE_A_alignment.json,,,
+SAMPLE_B,SAMPLE_B_R1.fastq.gz,SAMPLE_B_R2.fastq.gz,SAMPLE_B_HE.tif,SAMPLE_B_CytAssist.tif,V10A01-456,B1,,,,,,
+SAMPLE_C,,,/path/to/SAMPLE_C_HE.tif,,,,,,,,,/path/to/SAMPLE_C/outs
