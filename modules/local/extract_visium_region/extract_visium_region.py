@@ -47,14 +47,25 @@ def extract_visium_region(
 
     if len(shape) != len(axes) or "Y" not in axes or "X" not in axes:
         raise ValueError(f"Unsupported microscopy TIFF layout: shape={shape}, axes='{axes}'")
-    unsupported = [
-        (axis, size)
-        for axis, size in zip(axes, shape)
-        if axis not in {"Y", "X", "S", "C"} and size != 1
-    ]
-    channel_axes = [axis for axis in ("S", "C") if axis in axes and shape[axes.index(axis)] > 1]
-    if unsupported or len(channel_axes) > 1:
+    unsupported = [axis for axis in axes if axis not in {"Y", "X", "S", "C"}]
+    if unsupported:
         raise ValueError(f"Unsupported microscopy TIFF layout: shape={shape}, axes='{axes}'")
+    color_axis = next(
+        (axis for axis in ("S", "C") if axis in axes and shape[axes.index(axis)] == 3),
+        None,
+    )
+    non_spatial_sizes = [
+        size for axis, size in zip(axes, shape) if axis not in {"Y", "X", color_axis}
+    ]
+    if color_axis is None and any(size > 1 for size in non_spatial_sizes):
+        raise ValueError(f"Unsupported microscopy TIFF layout: shape={shape}, axes='{axes}'")
+    selected_planes = [
+        f"{axis}=0/{size}"
+        for axis, size in zip(axes, shape)
+        if axis not in {"Y", "X", color_axis} and size > 1
+    ]
+    if selected_planes:
+        print(f"Selecting the first plane from additional TIFF axes: {', '.join(selected_planes)}")
 
     height = shape[axes.index("Y")]
     width = shape[axes.index("X")]
@@ -100,7 +111,7 @@ def extract_visium_region(
             elif axis == "X":
                 slices.append(slice(crop_x0, crop_x1))
                 crop_axes.append(axis)
-            elif axis in {"S", "C"} and size > 1:
+            elif axis == color_axis:
                 slices.append(slice(None))
                 crop_axes.append(axis)
             else:
@@ -109,10 +120,10 @@ def extract_visium_region(
     finally:
         store.close()
 
-    if channel_axes:
+    if color_axis:
         crop = np.transpose(
             crop,
-            [crop_axes.index("Y"), crop_axes.index("X"), crop_axes.index(channel_axes[0])],
+            [crop_axes.index("Y"), crop_axes.index("X"), crop_axes.index(color_axis)],
         )
         if crop.shape[-1] != 3:
             raise ValueError(f"Expected an RGB microscopy TIFF, got {crop.shape[-1]} channels")

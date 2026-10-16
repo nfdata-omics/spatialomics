@@ -266,16 +266,23 @@ def main():
                 f"planarconfig={getattr(page.planarconfig, 'name', None)}, "
                 f"tiled={page.is_tiled}, compression={page.compression.name}"
             )
+        elif series_count == 1 and tif.pages[0].axes in {"YX", "YXS"}:
+            source = "page"
+            page = tif.pages[0]
+            shape = tuple(page.shape)
+            axes = page.axes
+            page_is_memmappable = page.is_memmappable
+            print(
+                "TIFF contains multiple planes; selecting the first physical page: "
+                f"shape={shape}, dtype={page.dtype}, axes={axes}"
+            )
         elif series_count == 1:
             source = "series"
             series = tif.series[0]
             shape = tuple(series.shape)
             axes = series.axes
             page_is_memmappable = False
-            print(
-                "TIFF series: "
-                f"shape={shape}, dtype={series.dtype}, axes={axes}"
-            )
+            print(f"TIFF series: shape={shape}, dtype={series.dtype}, axes={axes}")
         else:
             raise ValueError(
                 "Unsupported multi-series TIFF: "
