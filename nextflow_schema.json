@@ -103,6 +103,29 @@
                 }
             }
         },
+        "he_image_processing_options": {
+            "title": "H&E image editing and manipulation options",
+            "type": "object",
+            "fa_icon": "fas fa-image",
+            "description": "Parameters controlling editing, cropping, and publication of H&E microscopy images.",
+            "properties": {
+                "capture_area_image_padding": {
+                    "type": "integer",
+                    "default": 0,
+                    "minimum": 0,
+                    "description": "Full-resolution pixels added around each side of the exported Visium capture-area image.",
+                    "help_text": "The padding is clamped to the microscopy image boundaries and does not alter the Visium bounds used for segmentation.",
+                    "fa_icon": "fas fa-expand"
+                },
+                "save_capture_area_image": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Publish the cropped high-resolution microscopy image and its coordinate TSV.",
+                    "help_text": "Disable this option to keep the capture-area image and coordinate files out of the pipeline output directory.",
+                    "fa_icon": "fas fa-save"
+                }
+            }
+        },
         "bin_to_cell_mapping_options": {
             "title": "Bin-to-cell mapping options",
             "type": "object",

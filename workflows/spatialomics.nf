@@ -12,8 +12,8 @@ include { TAR                         } from '../modules/nf-core/tar/main'
 include { SPATIAL_QUALITY_CONTROL     } from '../modules/local/spatial_quality_control/main'
 include { COLLECT_QC                  } from '../modules/local/collect_qc/main'
 include { CZI_TO_SPACERANGER_TIFF     } from '../modules/local/czi_to_spaceranger_tiff/main'
-include { IMAGE_TO_TIFF               } from '../modules/local/image_to_tiff/main'
-include { VISIUM_BOUNDS               } from '../modules/local/visium_bounds/main'
+include { PREPARE_SEGMENTATION_IMAGE  } from '../modules/local/prepare_segmentation_image/main'
+include { EXTRACT_VISIUM_REGION       } from '../modules/local/extract_visium_region/main'
 include { CELLPOSE_SEGMENTATION       } from '../modules/local/cellpose_segmentation/main'
 include { SPATIALDATA_AUGMENT_WITH_SEGMENTATION } from '../modules/local/spatialdata_augment_with_segmentation/main'
 include { ASSEMBLE_IMAGING_MULTIQC    } from '../modules/local/assemble_imaging_multiqc/main'
@@ -78,12 +78,11 @@ workflow SPATIALOMICS {
     // Space Ranger does not accept CZI directly. Convert CZI images once and reuse the
     // resulting full-resolution RGB BigTIFF throughout the rest of the workflow.
     ch_images_to_prepare = ch_reads.map { meta, _fastq -> [["id": meta.id], meta.image] }
-    // If segmentation is not being skipped, also include the images provided for pre-computed Space Ranger outputs
-    if ( !params.skip_segmentation ) {
-        ch_images_to_prepare = ch_images_to_prepare.mix(
-            ch_spaceranger_outs.map { meta, _out -> [["id": meta.id], meta.image] }
-        )
-    }
+    // Also prepare images supplied with pre-computed Space Ranger outputs for
+    // capture-area extraction and any other image-dependent downstream processing.
+    ch_images_to_prepare = ch_images_to_prepare.mix(
+        ch_spaceranger_outs.map { meta, _out -> [["id": meta.id], meta.image] }
+    )
 
     // Select only CZI images for conversion to Space Ranger-compatible TIFF, and pass through any other image formats unchanged
     ch_images_to_prepare
@@ -175,50 +174,53 @@ workflow SPATIALOMICS {
     ch_multiqc_files = ch_multiqc_files.mix(COLLECT_QC.out.metrics)
     ch_multiqc_files = ch_multiqc_files.mix(COLLECT_QC.out.distributions)
 
-    // Prepare microscopy images and crop areas for downstream processing, unless segmentation is being skipped
+    //
+    // MODULE: Extract the full-resolution Visium capture area from the RGB microscopy image
+    //
+
+    ch_microscopy_images = ch_prepared_microscopy_images
+        .filter { _meta, image -> image }
+
+    SPACERANGER_TO_ZARR.out.zarr
+        .map { meta, zarr -> [["id": meta.id], zarr] }
+        .join(ch_microscopy_images)
+        .set { ch_extract_visium_region_inputs }
+
+    EXTRACT_VISIUM_REGION (
+        ch_extract_visium_region_inputs,
+        params.zarr_downsample_factor,
+        params.capture_area_image_padding
+    )
+    ch_versions = ch_versions.mix(EXTRACT_VISIUM_REGION.out.versions.first())
+
+    // Prepare segmentation-specific inputs unless segmentation is being skipped.
     if ( params.skip_segmentation ) {
-        ch_microscopy_images = channel.empty()
+        ch_segmentation_images = channel.empty()
         ch_crop_areas = channel.empty()
     } else {
         // A missing image is represented by an empty path value inside an emitted tuple,
         // not by an empty channel. Remove those tuples so image-dependent processes are
         // skipped idiomatically for samples without a microscopy image.
-        ch_microscopy_images = ch_prepared_microscopy_images
-            .filter { _meta, image -> image }
+        ch_segmentation_images = ch_microscopy_images
         ch_reads.map { meta, _fastq -> [["id": meta.id], meta.crop_areas ] }
             .mix ( ch_spaceranger_outs.map { meta, _out -> [["id": meta.id], meta.crop_areas ] } )
             .set { ch_crop_areas }
     }
 
     //
-    // MODULE: Convert microscopy images to memmappable OME-TIFF format
+    // MODULE: Prepare grayscale memmappable OME-TIFF images for segmentation
     //
 
-    IMAGE_TO_TIFF(
-        ch_microscopy_images
+    PREPARE_SEGMENTATION_IMAGE(
+        ch_segmentation_images
     )
-
-    //
-    // MODULE: Compute full-resolution microscopy bounds for the Visium capture area
-    //
-
-    SPACERANGER_TO_ZARR.out.zarr
-        .map { meta, zarr -> [["id": meta.id], zarr] }
-        .join(IMAGE_TO_TIFF.out.tiff)
-        .set { ch_visium_bounds_inputs }
-
-    VISIUM_BOUNDS (
-        ch_visium_bounds_inputs,
-        params.zarr_downsample_factor
-    )
-    ch_versions = ch_versions.mix(VISIUM_BOUNDS.out.versions.first())
 
     //
     // MODULE: Cell segmentation with Cellpose
     //
 
-    IMAGE_TO_TIFF.out.tiff
-        .join(VISIUM_BOUNDS.out.bounds)
+    PREPARE_SEGMENTATION_IMAGE.out.tiff
+        .join(EXTRACT_VISIUM_REGION.out.bounds)
         .set { ch_cellpose_inputs }
 
     CELLPOSE_SEGMENTATION (
@@ -233,7 +235,7 @@ workflow SPATIALOMICS {
     SPACERANGER_TO_ZARR.out.zarr
         .map { meta, zarr -> [["id": meta.id], zarr] }
         .join(CELLPOSE_SEGMENTATION.out.mask)
-        .join(IMAGE_TO_TIFF.out.tiff)
+        .join(PREPARE_SEGMENTATION_IMAGE.out.tiff)
         .join(ch_crop_areas)
         .set { ch_spatialdata_augment_with_segmentation_inputs }
 
@@ -283,7 +285,7 @@ workflow SPATIALOMICS {
         ch_all_spaceranger_outs
             .map { meta, outs -> [["id": meta.id], outs] }
             .join(CELLPOSE_SEGMENTATION.out.mask)
-            .join(IMAGE_TO_TIFF.out.tiff)
+            .join(PREPARE_SEGMENTATION_IMAGE.out.tiff)
             .set { ch_bin2cell_inputs }
     }
 

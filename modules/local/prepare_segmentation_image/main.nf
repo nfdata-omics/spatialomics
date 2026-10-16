@@ -1,4 +1,4 @@
-process IMAGE_TO_TIFF {
+process PREPARE_SEGMENTATION_IMAGE {
     tag "$meta.id"
     label 'process_single', 'process_high_memory'
 
@@ -18,11 +18,11 @@ process IMAGE_TO_TIFF {
     script:
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
-    cat << 'END_SCRIPT' > convert_to_memmappable_tiff.py
-${file("${moduleDir}/convert_to_memmappable_tiff.py").text}
+    cat << 'END_SCRIPT' > prepare_segmentation_image.py
+${file("${moduleDir}/prepare_segmentation_image.py").text}
 END_SCRIPT
 
-    python3 convert_to_memmappable_tiff.py \
+    python3 prepare_segmentation_image.py \
         "${input_image}" \
         --output "${prefix}_memmappable.ome.tif" \
         --factor 1 \

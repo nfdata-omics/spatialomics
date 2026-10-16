@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+"""Prepare a microscopy image as a grayscale memmappable TIFF for segmentation."""
 
 import argparse
 import os

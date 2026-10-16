@@ -1,11 +1,12 @@
-name: image_to_tiff
-description: Convert microscopy images to uncompressed contiguous memmappable OME-TIFF files
+name: prepare_segmentation_image
+description: Prepare microscopy images as grayscale, uncompressed, contiguous memmappable OME-TIFF files for segmentation
 keywords:
   - microscopy
   - tiff
   - bigtiff
   - btf
   - memmap
+  - segmentation
 tools:
   - tifffile:
       description: |
@@ -32,7 +33,7 @@ output:
             e.g. [ id:'NFG021_002' ]
       - "*_memmappable.ome.tif":
           type: file
-          description: Uncompressed contiguous OME-TIFF suitable for tifffile.memmap
+          description: Grayscale, uncompressed, contiguous OME-TIFF suitable for segmentation and tifffile.memmap
           pattern: "*_memmappable.ome.tif"
   versions_container:
     - - ${task.process}:

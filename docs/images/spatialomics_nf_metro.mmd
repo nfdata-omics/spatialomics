@@ -44,12 +44,12 @@ graph LR
 
     subgraph image_segmentation [Image segmentation]
         microscopy_image_in[ ]
-        image_to_tiff[to memmappable OME-TIFF]
+        prepare_segmentation_image[Prepare segmentation image]
         cellpose[Cellpose]
         segmentation_plots[Segmentation plots and statistics]
 
-        microscopy_image_in -->|fastq_route,processed_route| image_to_tiff
-        image_to_tiff -->|fastq_route,processed_route| cellpose
+        microscopy_image_in -->|fastq_route,processed_route| prepare_segmentation_image
+        prepare_segmentation_image -->|fastq_route,processed_route| cellpose
         cellpose -->|fastq_route,processed_route| segmentation_plots
     end
 

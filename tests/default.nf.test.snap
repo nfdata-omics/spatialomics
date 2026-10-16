@@ -41,7 +41,7 @@
                 "FQ_LINT": {
                     "fq": "0.12.0 (2024-07-08)"
                 },
-                "IMAGE_TO_TIFF": {
+                "PREPARE_SEGMENTATION_IMAGE": {
                     "container": "docker.io/nfdata/cellpose-cuda:v4.0.8-torch2.10.0-cuda12.1.1"
                 },
                 "SPACERANGER_COUNT": {
@@ -75,7 +75,7 @@
                 "UNTAR_SPACERANGER_REF": {
                     "untar": 1.34
                 },
-                "VISIUM_BOUNDS": {
+                "EXTRACT_VISIUM_REGION": {
                     "python": "3.11.11",
                     "spatialdata": "0.7.2",
                     "tifffile": "2026.1.28"

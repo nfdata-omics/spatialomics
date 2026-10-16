@@ -1,4 +1,4 @@
-process VISIUM_BOUNDS {
+process EXTRACT_VISIUM_REGION {
     tag "$meta.id"
     label 'process_single'
 
@@ -7,9 +7,11 @@ process VISIUM_BOUNDS {
     input:
     tuple val(meta), path(zarr_folder), path(microscopy_image)
     val zarr_downsample_factor
+    val crop_padding
 
     output:
     tuple val(meta), path("*_visium_bounds.tsv"), emit: bounds
+    tuple val(meta), path("*_visium_capture_area.ome.tif"), emit: crop
     path "versions.yml", emit: versions
 
     when:
@@ -22,18 +24,20 @@ process VISIUM_BOUNDS {
     export MPLCONFIGDIR=\${TMPDIR:-/tmp}
     export XDG_CONFIG_HOME=\${TMPDIR:-/tmp}
 
-    cat << 'END_SCRIPT' > visium_bounds.py
-${file("${moduleDir}/visium_bounds.py").text}
+    cat << 'END_SCRIPT' > extract_visium_region.py
+${file("${moduleDir}/extract_visium_region.py").text}
 END_SCRIPT
 
-    python3 visium_bounds.py \\
+    python3 extract_visium_region.py \\
         --input-zarr "${zarr_folder}" \\
         --sample-name "${prefix}" \\
         --microscopy-tif "${microscopy_image}" \\
         --zarr-downsample-factor "${zarr_downsample_factor}" \\
-        --output-bounds "${prefix}_visium_bounds.tsv"
+        --crop-padding "${crop_padding}" \\
+        --output-bounds "${prefix}_visium_bounds.tsv" \\
+        --output-crop "${prefix}_visium_capture_area.ome.tif"
 
-    python3 visium_bounds.py \\
+    python3 extract_visium_region.py \\
         --versions-dict "${task.process}" > versions.yml
     """
 
@@ -41,9 +45,11 @@ END_SCRIPT
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
     cat << 'END_BOUNDS' > "${prefix}_visium_bounds.tsv"
-x0	y0	x1	y1
-0	0	1	1
+x0	y0	x1	y1	crop_x0	crop_y0	crop_x1	crop_y1	source_width	source_height	padding
+0	0	1	1	0	0	1	1	1	1	${crop_padding}
 END_BOUNDS
+
+    touch "${prefix}_visium_capture_area.ome.tif"
 
     cat > versions.yml <<END_VERSIONS
 "${task.process}":

@@ -1,11 +1,12 @@
-name: visium_bounds
-description: Compute Visium capture-area bounds in full-resolution microscopy image coordinates
+name: extract_visium_region
+description: Compute Visium capture-area bounds and extract the corresponding full-resolution microscopy image
 keywords:
   - spatialdata
   - spatial transcriptomics
   - visium hd
   - microscopy
   - bounds
+  - crop
 tools:
   - spatialdata:
       description: |
@@ -19,6 +20,12 @@ tools:
       homepage: https://github.com/cgohlke/tifffile
       documentation: https://iridescent.ink/tifffile/tifffile.html
       licence: ["BSD-3-Clause"]
+  - zarr:
+      description: |
+        Zarr provides chunked access to tiled TIFF pixel data through tifffile.
+      homepage: https://zarr.dev/
+      documentation: https://zarr.readthedocs.io/
+      licence: ["MIT"]
 input:
   - - meta:
         type: map
@@ -31,11 +38,14 @@ input:
         pattern: "*.zarr"
     - microscopy_image:
         type: file
-        description: Memmappable 2D TIFF microscopy image
-        pattern: "*.tif"
+        description: Full-resolution grayscale or RGB TIFF microscopy image
+        pattern: "*.{tif,tiff,btf}"
   - zarr_downsample_factor:
       type: number
       description: Downsampling factor between TIFF image coordinates and the zarr coordinate system
+  - crop_padding:
+      type: integer
+      description: Full-resolution pixels added around each side of the capture-area crop
 output:
   bounds:
     - - meta:
@@ -45,8 +55,18 @@ output:
             e.g. [ id:'NFG021_002' ]
       - "*_visium_bounds.tsv":
           type: file
-          description: Full-resolution microscopy pixel bounds as x0, y0, x1, y1
+          description: Visium and padded crop bounds in full-resolution microscopy pixels
           pattern: "*_visium_bounds.tsv"
+  crop:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information.
+            e.g. [ id:'NFG021_002' ]
+      - "*_visium_capture_area.ome.tif":
+          type: file
+          description: Padded full-resolution microscopy crop containing the Visium capture area
+          pattern: "*_visium_capture_area.ome.tif"
   versions:
     - versions.yml:
         type: file
