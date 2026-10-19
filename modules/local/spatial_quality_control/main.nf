@@ -13,7 +13,7 @@ process SPATIAL_QUALITY_CONTROL {
 
     output:
     path "versions.yml",                             emit: versions
-    tuple val(meta), path("*_qc.h5ad"),              emit: anndata
+    tuple val(meta), path("*_qc.zarr"),              emit: zarr
     tuple val(meta), path("*_qc_annotated_obs.csv"), emit: annotated_obs
     tuple val(meta), path("*_qc_metrics.csv"),       emit: metrics
     tuple val(meta), path("*_qc_distributions.png"), emit: distributions
@@ -37,6 +37,7 @@ END_SCRIPT
 
     python3 spatial_quality_control.py \
         --zarr "${zarr_folder}" \
+        --output-zarr "${prefix}_${resolution}_qc.zarr" \
         --sample "${prefix}" \
         --resolution "${resolution}" \
         --min-counts "${min_counts}" \
@@ -62,7 +63,7 @@ END_SCRIPT
 ${file("${moduleDir}/spatial_quality_control.py").text}
 END_SCRIPT
 
-    touch ${prefix}_qc.h5ad
+    mkdir -p ${prefix}_${resolution}_qc.zarr
     touch ${prefix}_qc_annotated_obs.csv
     touch ${prefix}_qc_metrics.csv
     touch ${prefix}_qc_distributions.png

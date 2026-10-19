@@ -1462,7 +1462,6 @@
                 "quality_control",
                 "quality_control/Visium_HD_Human_Lung_Cancer_HD_Only_Experiment2_qc_distributions.png",
                 "quality_control/Visium_HD_Human_Lung_Cancer_HD_Only_Experiment2_qc_mqc.png",
-                "quality_control/Visium_HD_Human_Lung_Cancer_HD_Only_Experiment2_square_016um_qc.h5ad",
                 "quality_control/qc_metrics.csv"
             ],
             [
@@ -2434,7 +2433,6 @@
                 "multiqc_spaceranger_metrics_sequencing.txt:md5,53bdf0cb04233d4fc054d50ec77e37ac",
                 "Visium_HD_Human_Lung_Cancer_HD_Only_Experiment2_qc_distributions.png:md5,f58286c4bef9af7829189edd4bac1e4a",
                 "Visium_HD_Human_Lung_Cancer_HD_Only_Experiment2_qc_mqc.png:md5,376958ba810c23196809f25b09b8a5e7",
-                "Visium_HD_Human_Lung_Cancer_HD_Only_Experiment2_square_016um_qc.h5ad:md5,3abb69ce3296dc61ec6b0405f524ff1a",
                 "qc_metrics.csv:md5,c74f240b0159dcb2f95f0236e40b551f"
             ]
         ],

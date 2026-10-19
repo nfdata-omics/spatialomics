@@ -5,6 +5,7 @@ import importlib
 import importlib.metadata
 import argparse
 import sys
+from pathlib import Path
 from matplotlib.colors import Normalize
 import yaml
 
@@ -21,8 +22,9 @@ import spotsweeper.local_outliers as lo
 
 matplotlib.use("Agg")
 
-def qc_from_h5ad(
+def spatial_quality_control(
     zarr_folder,
+    output_zarr,
     sample_id,
     resolution="square_016um",
     min_counts=100,
@@ -35,12 +37,14 @@ def qc_from_h5ad(
 
     Reads a spatialdata zarr object, calculates QC metrics, identifies global and
     local outliers, generates distribution plots and spatial visualizations, and
-    saves annotated observations and QC summary statistics.
+    saves the QC annotations in a new SpatialData Zarr and writes summary outputs.
 
     Parameters
     ----------
     zarr_folder : str
         Path to the input Zarr object containing spatialdata.
+    output_zarr : str
+        Path to the output SpatialData Zarr containing the QC annotations.
     sample_id : str
         Unique identifier for the sample being processed.
     resolution : str, optional
@@ -63,7 +67,14 @@ def qc_from_h5ad(
     print(f"\n=== Processing sample: {sample_id} ===\n")
 
     # Load AnnData at the specified resolution
+    zarr_folder = Path(zarr_folder)
+    output_zarr = Path(output_zarr)
+    if zarr_folder.resolve() == output_zarr.resolve():
+        raise ValueError("The input and output SpatialData Zarr paths must be different")
+
     sdata = spatialdata.read_zarr(zarr_folder)
+    if resolution not in sdata.tables:
+        raise KeyError(f"Table '{resolution}' was not found in the input SpatialData")
     adata = sdata.tables[resolution]
     adata.obs['sample'] = sample_id
 
@@ -138,8 +149,8 @@ def qc_from_h5ad(
     adata.obs.loc[out_of_tissue_mask, qc_flag_columns] = pd.NA
     in_tissue_mask = adata.obs["in_tissue"] == 1
     global_outliers = adata.obs["global_outliers"].fillna(False).astype(bool)
-    local_outliers = adata.obs["local_outliers"].fillna(False).astype(bool)
-    valid_bins = in_tissue_mask & ~global_outliers & ~local_outliers
+    valid_bins = in_tissue_mask & ~global_outliers
+    adata.obs["qc_pass"] = valid_bins.to_numpy(dtype=bool)
     valid_obs = adata.obs.loc[valid_bins]
     n_in_tissue = int(in_tissue_mask.sum())
     n_valid_bins = int(valid_bins.sum())
@@ -148,8 +159,19 @@ def qc_from_h5ad(
     # save annotation to csv
     adata.obs.to_csv(f"{sample_id}_qc_annotated_obs.csv")
 
-    # Save AnnData with quality control annotation
-    adata.write(f"{sample_id}_{resolution}_qc.h5ad")
+    # Record the QC configuration alongside the annotated table.
+    adata.uns["spatialomics_qc"] = {
+        "resolution": resolution,
+        "min_counts": int(min_counts),
+        "min_genes": int(min_genes),
+        "max_mt": float(max_mt),
+        "novelty_thresh": float(novelty_thresh),
+        "pass_column": "qc_pass",
+    }
+
+    # Persist the annotated table as part of a new canonical SpatialData object.
+    sdata.tables[resolution] = adata
+    sdata.write(output_zarr)
 
     # Collect QC summary
     summary_dict = {
@@ -341,6 +363,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Spatial quality control")
     parser.add_argument("--zarr", type=str,
                         help="Path to input Zarr object (zarr file)")
+    parser.add_argument("--output-zarr", type=str,
+                        help="Path to output SpatialData Zarr with QC annotations")
     parser.add_argument("--sample", type=str,
                         help="Sample ID to process")
     parser.add_argument("--resolution", type=str,
@@ -369,10 +393,11 @@ if __name__ == "__main__":
         ]
         print(versions_yaml(args.versions_dict, libs))
     else:
-        if not args.zarr or not args.sample:
-            parser.error("--zarr and --sample are required")
-        qc_from_h5ad(
+        if not args.zarr or not args.output_zarr or not args.sample:
+            parser.error("--zarr, --output-zarr and --sample are required")
+        spatial_quality_control(
             args.zarr,
+            args.output_zarr,
             args.sample,
             resolution = args.resolution,
             min_counts = args.min_counts,
