@@ -36,6 +36,24 @@ class UnionFind:
             self.parent[rb] = ra
 
 
+def tile_starts(length: int, tile_size: int, overlap: int) -> list[int]:
+    """Return tile starts, shifting the final tile to the image boundary."""
+    if tile_size <= 0:
+        raise ValueError("tile_size must be > 0")
+    if overlap < 0 or overlap >= tile_size:
+        raise ValueError("overlap must satisfy 0 <= overlap < tile_size")
+    if length <= tile_size:
+        return [0]
+
+    stride = tile_size - overlap
+    starts = list(range(0, length - tile_size + 1, stride))
+    final_start = length - tile_size
+    if starts[-1] != final_start:
+        starts.append(final_start)
+
+    return starts
+
+
 def generate_tiles(
     img_shape: Tuple[int, int],
     tile_size: int,
@@ -44,16 +62,13 @@ def generate_tiles(
     """
     Yields (y0, y1, x0, x1) tile coordinates.
     """
-    # Compute sliding-window step from tile size and overlap.
     h, w = img_shape
-    stride = tile_size - overlap
 
-    for y in range(0, h, stride):
-        for x in range(0, w, stride):
-            # Clamp tiles at image borders so the final tiles can be smaller.
-            y1 = min(y + tile_size, h)
-            x1 = min(x + tile_size, w)
-            yield y, y1, x, x1
+    for y0 in tile_starts(h, tile_size, overlap):
+        for x0 in tile_starts(w, tile_size, overlap):
+            y1 = min(y0 + tile_size, h)
+            x1 = min(x0 + tile_size, w)
+            yield y0, y1, x0, x1
 
 
 def remove_edge_instances(tile_mask: np.ndarray) -> np.ndarray:
@@ -72,7 +87,9 @@ def remove_edge_instances(tile_mask: np.ndarray) -> np.ndarray:
     """
 
     if tile_mask.ndim != 2:
-        raise ValueError("tile_mask must be a 2D array")
+        raise ValueError(
+            f"tile_mask must be a 2D array, got shape {tile_mask.shape}"
+        )
 
     cleaned = tile_mask.copy()
     if cleaned.shape[0] < 3 or cleaned.shape[1] < 3:
@@ -126,48 +143,46 @@ def stitch_instance_tiles_with_union(
     uf = UnionFind()
 
     current_max_id = 0
-    stride = tile_size - overlap
+    for y0, y1, x0, x1 in generate_tiles(
+        image_shape2d,
+        tile_size,
+        overlap,
+    ):
+        # Run segmentation on the current tile.
+        tile = img2d[y0:y1, x0:x1]
+        tile_mask = tile_segmenter_function(tile).astype(dtype)
 
-    for y0 in range(0, image_shape2d[0], stride):
-        for x0 in range(0, image_shape2d[1], stride):
-            y1 = min(y0 + tile_size, image_shape2d[0])
-            x1 = min(x0 + tile_size, image_shape2d[1])
+        # Assign provisional global IDs to tile instances
+        local_ids = np.unique(tile_mask)
+        local_ids = local_ids[local_ids != 0]
 
-            # Run segmentation on the current tile.
-            tile = img2d[y0:y1, x0:x1]
-            tile_mask = tile_segmenter_function(tile).astype(dtype)
+        # Give every local tile label a unique provisional global ID.
+        local_to_global = {}
+        for lid in local_ids:
+            current_max_id += 1
+            local_to_global[lid] = current_max_id
+            uf.find(current_max_id)
 
-            # Assign provisional global IDs to tile instances
-            local_ids = np.unique(tile_mask)
-            local_ids = local_ids[local_ids != 0]
+        # Replace tile-local IDs with provisional global IDs.
+        remapped = np.zeros_like(tile_mask)
+        for lid, gid in local_to_global.items():
+            remapped[tile_mask == lid] = gid
 
-            # Give every local tile label a unique provisional global ID.
-            local_to_global = {}
-            for lid in local_ids:
-                current_max_id += 1
-                local_to_global[lid] = current_max_id
-                uf.find(current_max_id)
+        stitched_view = stitched[y0:y1, x0:x1]
 
-            # Replace tile-local IDs with provisional global IDs.
-            remapped = np.zeros_like(tile_mask)
-            for lid, gid in local_to_global.items():
-                remapped[tile_mask == lid] = gid
+        # Detect overlaps and UNION instances
+        overlap_mask = (stitched_view > 0) & (remapped > 0)
+        if overlap_mask.any():
+            overlapping_pairs = np.stack(
+                (stitched_view[overlap_mask], remapped[overlap_mask]),
+                axis=1
+            )
+            for a, b in overlapping_pairs:
+                uf.union(int(a), int(b))
 
-            stitched_view = stitched[y0:y1, x0:x1]
-
-            # Detect overlaps and UNION instances
-            overlap_mask = (stitched_view > 0) & (remapped > 0)
-            if overlap_mask.any():
-                overlapping_pairs = np.stack(
-                    (stitched_view[overlap_mask], remapped[overlap_mask]),
-                    axis=1
-                )
-                for a, b in overlapping_pairs:
-                    uf.union(int(a), int(b))
-
-            # Fill only empty pixels; keep existing labels until final relabel.
-            write_mask = (stitched_view == 0) & (remapped > 0)
-            stitched_view[write_mask] = remapped[write_mask]
+        # Fill only empty pixels; keep existing labels until final relabel.
+        write_mask = (stitched_view == 0) & (remapped > 0)
+        stitched_view[write_mask] = remapped[write_mask]
 
     # Compress all equivalent provisional IDs into contiguous IDs [1..N].
     relabel_map = {}
