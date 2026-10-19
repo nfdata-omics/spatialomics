@@ -77,6 +77,7 @@
                 },
                 "EXTRACT_VISIUM_REGION": {
                     "python": "3.11.11",
+                    "scikit-image": "0.26.0",
                     "spatialdata": "0.7.2",
                     "tifffile": "2026.1.28"
                 },

@@ -1,5 +1,5 @@
 name: extract_visium_region
-description: Compute Visium capture-area bounds and extract the corresponding full-resolution microscopy image
+description: Compute Visium capture-area bounds and extract a downsampled microscopy image for annotation
 keywords:
   - spatialdata
   - spatial transcriptomics
@@ -26,6 +26,11 @@ tools:
       homepage: https://zarr.dev/
       documentation: https://zarr.readthedocs.io/
       licence: ["MIT"]
+  - scikit-image:
+      description: Image processing algorithms for Python
+      homepage: https://scikit-image.org/
+      documentation: https://scikit-image.org/docs/stable/
+      licence: ["BSD-3-Clause"]
 input:
   - - meta:
         type: map
@@ -46,6 +51,9 @@ input:
   - crop_padding:
       type: integer
       description: Full-resolution pixels added around each side of the capture-area crop
+  - crop_downsample_factor:
+      type: integer
+      description: Factor by which both dimensions of the output crop are reduced
 output:
   bounds:
     - - meta:
@@ -55,7 +63,7 @@ output:
             e.g. [ id:'NFG021_002' ]
       - "*_visium_bounds.tsv":
           type: file
-          description: Visium and padded crop bounds in full-resolution microscopy pixels
+          description: Full-resolution Visium and crop bounds plus output image dimensions and scale
           pattern: "*_visium_bounds.tsv"
   crop:
     - - meta:
@@ -65,7 +73,7 @@ output:
             e.g. [ id:'NFG021_002' ]
       - "*_visium_capture_area.ome.tif":
           type: file
-          description: Padded full-resolution microscopy crop containing the Visium capture area
+          description: Padded and downsampled microscopy crop containing the Visium capture area
           pattern: "*_visium_capture_area.ome.tif"
   versions:
     - versions.yml:

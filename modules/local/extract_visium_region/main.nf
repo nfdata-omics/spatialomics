@@ -8,6 +8,7 @@ process EXTRACT_VISIUM_REGION {
     tuple val(meta), path(zarr_folder), path(microscopy_image)
     val zarr_downsample_factor
     val crop_padding
+    val crop_downsample_factor
 
     output:
     tuple val(meta), path("*_visium_bounds.tsv"), emit: bounds
@@ -34,6 +35,7 @@ END_SCRIPT
         --microscopy-tif "${microscopy_image}" \\
         --zarr-downsample-factor "${zarr_downsample_factor}" \\
         --crop-padding "${crop_padding}" \\
+        --crop-downsample-factor "${crop_downsample_factor}" \\
         --output-bounds "${prefix}_visium_bounds.tsv" \\
         --output-crop "${prefix}_visium_capture_area.ome.tif"
 
@@ -45,8 +47,8 @@ END_SCRIPT
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
     cat << 'END_BOUNDS' > "${prefix}_visium_bounds.tsv"
-x0	y0	x1	y1	crop_x0	crop_y0	crop_x1	crop_y1	source_width	source_height	padding
-0	0	1	1	0	0	1	1	1	1	${crop_padding}
+x0	y0	x1	y1	crop_x0	crop_y0	crop_x1	crop_y1	source_width	source_height	padding	downsample_factor	output_width	output_height	scale_x	scale_y
+0	0	1	1	0	0	1	1	1	1	${crop_padding}	${crop_downsample_factor}	1	1	1	1
 END_BOUNDS
 
     touch "${prefix}_visium_capture_area.ome.tif"

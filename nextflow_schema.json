@@ -117,6 +117,14 @@
                     "help_text": "The padding is clamped to the microscopy image boundaries and does not alter the Visium bounds used for segmentation.",
                     "fa_icon": "fas fa-expand"
                 },
+                "capture_area_image_downsample_factor": {
+                    "type": "integer",
+                    "default": 4,
+                    "minimum": 1,
+                    "description": "Factor by which both dimensions of the exported Visium capture-area image are reduced.",
+                    "help_text": "A value of 4 produces an image approximately one quarter as wide and one quarter as high. Use 1 to disable downsampling. Coordinates in the accompanying TSV remain relative to the full-resolution microscopy image.",
+                    "fa_icon": "fas fa-compress"
+                },
                 "save_capture_area_image": {
                     "type": "boolean",
                     "default": true,

@@ -189,7 +189,8 @@ workflow SPATIALOMICS {
     EXTRACT_VISIUM_REGION (
         ch_extract_visium_region_inputs,
         params.zarr_downsample_factor,
-        params.capture_area_image_padding
+        params.capture_area_image_padding,
+        params.capture_area_image_downsample_factor
     )
     ch_versions = ch_versions.mix(EXTRACT_VISIUM_REGION.out.versions.first())
 

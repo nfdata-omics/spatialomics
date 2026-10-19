@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compute Visium bounds and extract the full-resolution capture-area image."""
+"""Compute Visium bounds and extract the capture-area image."""
 
 import argparse
 import importlib
@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
+from skimage.transform import resize_local_mean
 import spatialdata as sd
 import tifffile
 import yaml
@@ -27,11 +28,13 @@ def extract_visium_region(
     microscopy_tif,
     zarr_downsample_factor,
     crop_padding,
+    crop_downsample_factor,
     output_bounds,
     output_crop,
 ):
     """Compute Visium bounds, write their metadata, and extract the padded TIFF crop."""
     validate_positive_number(zarr_downsample_factor, "--zarr-downsample-factor")
+    validate_positive_number(crop_downsample_factor, "--crop-downsample-factor")
     if crop_padding < 0:
         raise ValueError(f"--crop-padding must be >= 0, got {crop_padding}")
 
@@ -86,17 +89,23 @@ def extract_visium_region(
     crop_y0 = max(0, y0 - crop_padding)
     crop_x1 = min(width, x1 + crop_padding)
     crop_y1 = min(height, y1 + crop_padding)
+    output_width = math.ceil((crop_x1 - crop_x0) / crop_downsample_factor)
+    output_height = math.ceil((crop_y1 - crop_y0) / crop_downsample_factor)
+    scale_x = (crop_x1 - crop_x0) / output_width
+    scale_y = (crop_y1 - crop_y0) / output_height
 
     output_bounds.parent.mkdir(parents=True, exist_ok=True)
     output_crop.parent.mkdir(parents=True, exist_ok=True)
     with output_bounds.open("w", encoding="utf-8") as handle:
         handle.write(
             "x0\ty0\tx1\ty1\tcrop_x0\tcrop_y0\tcrop_x1\tcrop_y1\t"
-            "source_width\tsource_height\tpadding\n"
+            "source_width\tsource_height\tpadding\tdownsample_factor\t"
+            "output_width\toutput_height\tscale_x\tscale_y\n"
         )
         handle.write(
             f"{x0}\t{y0}\t{x1}\t{y1}\t{crop_x0}\t{crop_y0}\t{crop_x1}\t{crop_y1}\t"
-            f"{width}\t{height}\t{crop_padding}\n"
+            f"{width}\t{height}\t{crop_padding}\t{crop_downsample_factor}\t"
+            f"{output_width}\t{output_height}\t{scale_x:.12g}\t{scale_y:.12g}\n"
         )
 
     store = tifffile.imread(microscopy_tif, series=0, level=0, aszarr=True)
@@ -134,6 +143,18 @@ def extract_visium_region(
         photometric = "minisblack"
         output_axes = "YX"
 
+    if crop_downsample_factor != 1:
+        output_shape = (output_height, output_width)
+        resized = resize_local_mean(
+            crop,
+            output_shape,
+            preserve_range=True,
+            channel_axis=-1 if crop.ndim == 3 else None,
+        )
+        if np.issubdtype(crop.dtype, np.integer):
+            resized = np.rint(resized)
+        crop = resized.astype(crop.dtype, copy=False)
+
     tifffile.imwrite(
         output_crop,
         crop,
@@ -169,7 +190,7 @@ def versions_yaml(process_name, list_of_libs):
 def parse_args():
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(
-        description="Compute Visium bounds and extract the full-resolution capture-area image"
+        description="Compute Visium bounds and extract the capture-area image"
     )
     parser.add_argument("--input-zarr", type=Path, help="Path to input SpatialData zarr folder")
     parser.add_argument("--sample-name", help="Sample name used to find SpatialData elements")
@@ -186,8 +207,14 @@ def parse_args():
         default=0,
         help="Full-resolution pixels added around each side of the capture-area crop",
     )
+    parser.add_argument(
+        "--crop-downsample-factor",
+        type=int,
+        default=1,
+        help="Factor by which both dimensions of the output crop are reduced",
+    )
     parser.add_argument("--output-bounds", type=Path, help="Output TSV bounds file")
-    parser.add_argument("--output-crop", type=Path, help="Output full-resolution TIFF crop")
+    parser.add_argument("--output-crop", type=Path, help="Output TIFF crop")
     parser.add_argument(
         "--versions-dict",
         help="If set, print versions of relevant libraries in YAML format and exit",
@@ -199,7 +226,7 @@ def main():
     """Run Visium region extraction."""
     args = parse_args()
     if args.versions_dict:
-        print(versions_yaml(args.versions_dict, ["spatialdata", "tifffile"]))
+        print(versions_yaml(args.versions_dict, ["spatialdata", "tifffile", "scikit-image"]))
         return
 
     missing = [
@@ -216,6 +243,7 @@ def main():
         microscopy_tif=args.microscopy_tif,
         zarr_downsample_factor=args.zarr_downsample_factor,
         crop_padding=args.crop_padding,
+        crop_downsample_factor=args.crop_downsample_factor,
         output_bounds=args.output_bounds,
         output_crop=args.output_crop,
     )
