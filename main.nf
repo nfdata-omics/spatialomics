@@ -52,6 +52,9 @@ workflow NFDATAOMICS_SPATIALOMICS {
     ch_spaceranger_index  = params.spaceranger_index ? file(params.spaceranger_index, checkIfExists: true) : channel.empty()
     ch_probeset           = params.probeset          ? channel.value(file(params.probeset, checkIfExists: true))          : channel.empty()
 
+    // Define channel for the optional single-cell reference dataset
+    ch_single_cell_reference = params.single_cell_reference_h5ad ? channel.value(file(params.single_cell_reference_h5ad, checkIfExists: true)) : channel.empty()
+
     //
     // WORKFLOW: Run pipeline
     //
@@ -63,6 +66,7 @@ workflow NFDATAOMICS_SPATIALOMICS {
         ch_gff,
         ch_spaceranger_index,
         ch_probeset,
+        ch_single_cell_reference,
         params.multiqc_config,
         params.multiqc_logo,
         params.multiqc_methods_description,

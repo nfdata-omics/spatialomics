@@ -11,6 +11,8 @@ include { SPACERANGER_TO_ZARR         } from '../modules/local/spaceranger_to_za
 include { TAR                         } from '../modules/nf-core/tar/main'
 include { SPATIAL_QUALITY_CONTROL     } from '../modules/local/spatial_quality_control/main'
 include { COLLECT_QC                  } from '../modules/local/collect_qc/main'
+include { CELL2LOCATION_REFERENCE     } from '../modules/local/cell2location/reference/main'
+include { CELL2LOCATION_DECONVOLUTION } from '../modules/local/cell2location/deconvolution/main'
 include { CZI_TO_SPACERANGER_TIFF     } from '../modules/local/czi_to_spaceranger_tiff/main'
 include { PREPARE_SEGMENTATION_IMAGE  } from '../modules/local/prepare_segmentation_image/main'
 include { EXTRACT_VISIUM_REGION       } from '../modules/local/extract_visium_region/main'
@@ -43,6 +45,7 @@ workflow SPATIALOMICS {
     ch_gff                // value channel: path(gff)
     ch_spaceranger_index  // value channel: path(spaceranger_index)
     ch_probeset           // value channel: path(probeset) (optional)
+    ch_single_cell_reference // value channel: optional single-cell reference AnnData
     multiqc_config
     multiqc_logo
     multiqc_methods_description
@@ -173,6 +176,32 @@ workflow SPATIALOMICS {
 
     ch_multiqc_files = ch_multiqc_files.mix(COLLECT_QC.out.metrics)
     ch_multiqc_files = ch_multiqc_files.mix(COLLECT_QC.out.distributions)
+
+    //
+    // MODULE: Train the Cell2location reference model once per pipeline run
+    //
+    CELL2LOCATION_REFERENCE (
+        ch_single_cell_reference.map { h5ad -> [["id": h5ad.simpleName], h5ad] },
+        params.single_cell_reference_cell_type_key,
+        params.single_cell_reference_batch_key,
+        params.single_cell_reference_counts_layer,
+        params.single_cell_reference_gene_key
+    )
+
+    // Convert the single signatures output to a value channel so that the same
+    // reference can be reused by every spatial sample.
+    CELL2LOCATION_REFERENCE.out.signatures
+        .map { _meta, signatures -> signatures }
+        .first()
+        .set { ch_cell2location_signatures }
+
+    //
+    // MODULE: Deconvolve each QC-annotated SpatialData sample
+    //
+    CELL2LOCATION_DECONVOLUTION (
+        SPATIAL_QUALITY_CONTROL.out.zarr,
+        ch_cell2location_signatures
+    )
 
     //
     // MODULE: Extract the full-resolution Visium capture area from the RGB microscopy image
