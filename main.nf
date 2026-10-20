@@ -73,7 +73,8 @@ workflow NFDATAOMICS_SPATIALOMICS {
         params.outdir,
     )
     emit:
-    multiqc_report = SPATIALOMICS.out.multiqc_report // channel: /path/to/multiqc_report.html
+    multiqc_report    = SPATIALOMICS.out.multiqc_report    // channel: /path/to/multiqc_report.html
+    final_spatialdata = SPATIALOMICS.out.final_spatialdata // channel: [ val(meta), path(archive) ]
 }
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

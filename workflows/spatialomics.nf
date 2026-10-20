@@ -8,7 +8,7 @@ include { MULTIQC                     } from '../modules/nf-core/multiqc/main'
 include { SPACERANGER_COUNT           } from '../modules/nf-core/spaceranger/count/main'
 include { COLLECT_SPACERANGER_METRICS } from '../modules/local/collect_spaceranger_metrics/main'
 include { SPACERANGER_TO_ZARR         } from '../modules/local/spaceranger_to_zarr/main'
-include { TAR                         } from '../modules/nf-core/tar/main'
+include { TAR as TAR_RAW; TAR as TAR_FINAL } from '../modules/nf-core/tar/main'
 include { SPATIAL_QUALITY_CONTROL     } from '../modules/local/spatial_quality_control/main'
 include { COLLECT_QC                  } from '../modules/local/collect_qc/main'
 include { CELL2LOCATION_REFERENCE     } from '../modules/local/cell2location/reference/main'
@@ -147,11 +147,11 @@ workflow SPATIALOMICS {
     )
     ch_versions = ch_versions.mix(SPACERANGER_TO_ZARR.out.versions.first())
 
-    TAR (
+    TAR_RAW (
         SPACERANGER_TO_ZARR.out.zarr,
         '.gz'
     )
-    ch_versions = ch_versions.mix(TAR.out.versions.first())
+    ch_versions = ch_versions.mix(TAR_RAW.out.versions.first())
 
     //
     // MODULE: Spatial quality control
@@ -177,31 +177,39 @@ workflow SPATIALOMICS {
     ch_multiqc_files = ch_multiqc_files.mix(COLLECT_QC.out.metrics)
     ch_multiqc_files = ch_multiqc_files.mix(COLLECT_QC.out.distributions)
 
-    //
-    // MODULE: Train the Cell2location reference model once per pipeline run
-    //
-    CELL2LOCATION_REFERENCE (
-        ch_single_cell_reference.map { h5ad -> [["id": h5ad.simpleName], h5ad] },
-        params.single_cell_reference_cell_type_key,
-        params.single_cell_reference_batch_key,
-        params.single_cell_reference_counts_layer,
-        params.single_cell_reference_gene_key
-    )
+    // Use the QC-annotated SpatialData as the canonical input for downstream
+    // transformations. If a single-cell reference is provided, replace it with
+    // the deconvolved SpatialData; otherwise keep the QC output unchanged.
+    if ( params.single_cell_reference_h5ad ) {
+        //
+        // MODULE: Train the Cell2location reference model once per pipeline run
+        //
+        CELL2LOCATION_REFERENCE (
+            ch_single_cell_reference.map { h5ad -> [["id": h5ad.simpleName], h5ad] },
+            params.single_cell_reference_cell_type_key,
+            params.single_cell_reference_batch_key,
+            params.single_cell_reference_counts_layer,
+            params.single_cell_reference_gene_key
+        )
 
-    // Convert the single signatures output to a value channel so that the same
-    // reference can be reused by every spatial sample.
-    CELL2LOCATION_REFERENCE.out.signatures
-        .map { _meta, signatures -> signatures }
-        .first()
-        .set { ch_cell2location_signatures }
+        // Convert the single signatures output to a value channel so that the same
+        // reference can be reused by every spatial sample.
+        CELL2LOCATION_REFERENCE.out.signatures
+            .map { _meta, signatures -> signatures }
+            .first()
+            .set { ch_cell2location_signatures }
 
-    //
-    // MODULE: Deconvolve each QC-annotated SpatialData sample
-    //
-    CELL2LOCATION_DECONVOLUTION (
-        SPATIAL_QUALITY_CONTROL.out.zarr,
-        ch_cell2location_signatures
-    )
+        //
+        // MODULE: Deconvolve each QC-annotated SpatialData sample
+        //
+        CELL2LOCATION_DECONVOLUTION (
+            SPATIAL_QUALITY_CONTROL.out.zarr,
+            ch_cell2location_signatures
+        )
+        ch_zarr_before_segmentation = CELL2LOCATION_DECONVOLUTION.out.zarr
+    } else {
+        ch_zarr_before_segmentation = SPATIAL_QUALITY_CONTROL.out.zarr
+    }
 
     //
     // MODULE: Extract the full-resolution Visium capture area from the RGB microscopy image
@@ -262,7 +270,7 @@ workflow SPATIALOMICS {
     // MODULE: Augment SpatialData with segmentation and microscopy layers
     //
 
-    SPACERANGER_TO_ZARR.out.zarr
+    ch_zarr_before_segmentation
         .map { meta, zarr -> [["id": meta.id], zarr] }
         .join(CELLPOSE_SEGMENTATION.out.mask)
         .join(PREPARE_SEGMENTATION_IMAGE.out.tiff)
@@ -275,6 +283,29 @@ workflow SPATIALOMICS {
         16,
         2048
     )
+
+    // Select the most advanced SpatialData available for every sample. Samples
+    // without segmentation retain the QC or Cell2location Zarr selected above.
+    ch_zarr_before_segmentation
+        .map { meta, zarr -> [meta.id, meta, zarr] }
+        .join(
+            SPATIALDATA_AUGMENT_WITH_SEGMENTATION.out.zarr
+                .map { meta, zarr -> [meta.id, zarr] },
+            remainder: true
+        )
+        .map { id, meta, input_zarr, augmented_zarr = null ->
+            [meta, augmented_zarr ?: input_zarr]
+        }
+        .set { ch_final_zarr }
+
+    //
+    // MODULE: Archive the final SpatialData selected for each sample
+    //
+    TAR_FINAL (
+        ch_final_zarr,
+        '.gz'
+    )
+    ch_versions = ch_versions.mix(TAR_FINAL.out.versions.first())
 
     //
     // MODULE: Assemble imaging data to single-sample htmls for the MultiQC report
@@ -383,8 +414,10 @@ workflow SPATIALOMICS {
             ]
         }
     )
-    emit:multiqc_report = MULTIQC.out.report.map { _meta, report -> [report] }.toList() // channel: /path/to/multiqc_report.html
-    versions       = ch_versions                 // channel: [ path(versions.yml) ]
+    emit:
+    multiqc_report    = MULTIQC.out.report.map { _meta, report -> [report] }.toList() // channel: /path/to/multiqc_report.html
+    final_spatialdata = TAR_FINAL.out.archive                                        // channel: [ val(meta), path(archive) ]
+    versions          = ch_versions                                                   // channel: [ path(versions.yml) ]
 }
 
 /*
