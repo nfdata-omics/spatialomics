@@ -80,38 +80,38 @@
                 }
             }
         },
-        "cell2location_reference_options": {
-            "title": "Cell2location single-cell reference options",
+        "single_cell_reference_options": {
+            "title": "Single-cell reference options",
             "type": "object",
             "fa_icon": "fas fa-cells",
-            "description": "Single-cell reference data and annotations used to train the Cell2location reference model.",
+            "description": "Single-cell reference data and annotations available to downstream analyses.",
             "properties": {
-                "cell2location_reference": {
+                "single_cell_reference_h5ad": {
                     "type": "string",
                     "format": "file-path",
                     "exists": true,
                     "pattern": "^\\S+\\.h5ad$",
                     "description": "Path to the single-cell reference AnnData file.",
-                    "help_text": "The AnnData object must contain raw expression counts and a cell-type annotation in obs. The reference model is trained once and reused for all spatial samples.",
-                    "errorMessage": "The Cell2location reference must be an existing .h5ad file whose path does not contain spaces.",
+                    "help_text": "The AnnData object must contain raw expression counts and a cell-type annotation in obs. It can be reused by downstream analyses that require a single-cell reference.",
+                    "errorMessage": "The single-cell reference must be an existing .h5ad file whose path does not contain spaces.",
                     "fa_icon": "fas fa-file-medical"
                 },
-                "cell2location_cell_type_key": {
+                "single_cell_reference_cell_type_key": {
                     "type": "string",
                     "default": "cell_type",
                     "minLength": 1,
                     "description": "Column in the reference AnnData obs containing cell-type annotations.",
                     "fa_icon": "fas fa-tags"
                 },
-                "cell2location_batch_key": {
+                "single_cell_reference_batch_key": {
                     "type": "string",
                     "default": "none",
                     "minLength": 1,
                     "description": "Column in the reference AnnData obs containing batch annotations.",
-                    "help_text": "Set this parameter to 'none' to train the reference model without batch correction.",
+                    "help_text": "Set this parameter to 'none' when batch annotations are not available or should not be used.",
                     "fa_icon": "fas fa-layer-group"
                 },
-                "cell2location_counts_layer": {
+                "single_cell_reference_counts_layer": {
                     "type": "string",
                     "default": "X",
                     "minLength": 1,
@@ -119,7 +119,7 @@
                     "help_text": "Set this parameter to 'X' when raw counts are stored in reference.X.",
                     "fa_icon": "fas fa-table"
                 },
-                "cell2location_gene_key": {
+                "single_cell_reference_gene_key": {
                     "type": "string",
                     "default": "var_names",
                     "minLength": 1,
@@ -443,7 +443,7 @@
             "$ref": "#/$defs/bin_level_matrix_analysis_options"
         },
         {
-            "$ref": "#/$defs/cell2location_reference_options"
+            "$ref": "#/$defs/single_cell_reference_options"
         },
         {
             "$ref": "#/$defs/cell_segmentation_options"
