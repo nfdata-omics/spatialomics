@@ -1,0 +1,75 @@
+name: cell2location_deconvolution
+description: Deconvolve a Visium SpatialData sample using cell-type signatures from a cell2location reference model
+keywords:
+  - cell2location
+  - spatialdata
+  - spatial transcriptomics
+  - visium
+  - deconvolution
+tools:
+  - cell2location:
+      description: |
+        Cell2location maps fine-grained cell types in spatial transcriptomics data using a single-cell reference.
+      homepage: https://cell2location.readthedocs.io/
+      documentation: https://cell2location.readthedocs.io/
+      licence: ["Apache-2.0"]
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information.
+          e.g. [ id:'NFG021_002' ]
+    - zarr_folder:
+        type: directory
+        description: Input SpatialData Zarr containing the Visium table and QC annotations
+        pattern: "*.zarr"
+  - signatures:
+      type: file
+      description: Gene-by-cell-type expression signatures produced by CELL2LOCATION_REFERENCE
+      pattern: "*_reference_signatures.csv"
+output:
+  zarr:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information.
+            e.g. [ id:'NFG021_002' ]
+      - "*_cell2location.zarr":
+          type: directory
+          description: SpatialData Zarr containing cell-type abundance estimates
+          pattern: "*_cell2location.zarr"
+  abundance:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information.
+            e.g. [ id:'NFG021_002' ]
+      - "*_cell2location_abundance.csv":
+          type: file
+          description: Cell-type abundance estimates for every spatial location
+          pattern: "*_cell2location_abundance.csv"
+  versions_container:
+    - - ${task.process}:
+          type: string
+          description: The process the versions were collected from
+      - container:
+          type: string
+          description: The runtime environment type
+      - docker.io/nfdata/cell2location-cuda:v0.1.5-torch2.8.0-cuda12.9:
+          type: string
+          description: The Docker image used by the module
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: The process the versions were collected from
+      - container:
+          type: string
+          description: The runtime environment type
+      - docker.io/nfdata/cell2location-cuda:v0.1.5-torch2.8.0-cuda12.9:
+          type: string
+          description: The Docker image used by the module
+containers:
+  docker:
+    linux/amd64:
+      name: docker.io/nfdata/cell2location-cuda:v0.1.5-torch2.8.0-cuda12.9

@@ -1,0 +1,83 @@
+name: cell2location_reference
+description: Train a cell2location reference model and export cell-type expression signatures
+keywords:
+  - cell2location
+  - single-cell
+  - spatial transcriptomics
+  - deconvolution
+  - reference model
+tools:
+  - cell2location:
+      description: |
+        Cell2location maps fine-grained cell types in spatial transcriptomics data using a single-cell reference.
+      homepage: https://cell2location.readthedocs.io/
+      documentation: https://cell2location.readthedocs.io/
+      licence: ["Apache-2.0"]
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing reference information.
+          e.g. [ id:'reference' ]
+    - reference_h5ad:
+        type: file
+        description: Single-cell AnnData object containing raw counts and cell-type annotations
+        pattern: "*.h5ad"
+  - cell_type_key:
+      type: string
+      description: Column in reference_h5ad.obs containing the cell-type annotations
+  - batch_key:
+      type: string
+      description: Column in reference_h5ad.obs containing batch annotations; use "none" to disable batch correction
+  - counts_layer:
+      type: string
+      description: Layer containing raw counts; use "X" for reference_h5ad.X
+  - gene_key:
+      type: string
+      description: Column in reference_h5ad.var containing gene identifiers; use "var_names" for reference_h5ad.var_names
+output:
+  model:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing reference information.
+            e.g. [ id:'reference' ]
+      - "*_reference_model":
+          type: directory
+          description: Trained cell2location RegressionModel with its reference AnnData
+          pattern: "*_reference_model"
+  signatures:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing reference information.
+            e.g. [ id:'reference' ]
+      - "*_reference_signatures.csv":
+          type: file
+          description: Gene-by-cell-type reference expression signatures
+          pattern: "*_reference_signatures.csv"
+  versions_container:
+    - - ${task.process}:
+          type: string
+          description: The process the versions were collected from
+      - container:
+          type: string
+          description: The runtime environment type
+      - docker.io/nfdata/cell2location-cuda:v0.1.5-torch2.8.0-cuda12.9:
+          type: string
+          description: The Docker image used by the module
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: The process the versions were collected from
+      - container:
+          type: string
+          description: The runtime environment type
+      - docker.io/nfdata/cell2location-cuda:v0.1.5-torch2.8.0-cuda12.9:
+          type: string
+          description: The Docker image used by the module
+containers:
+  docker:
+    linux/amd64:
+      name: docker.io/nfdata/cell2location-cuda:v0.1.5-torch2.8.0-cuda12.9
