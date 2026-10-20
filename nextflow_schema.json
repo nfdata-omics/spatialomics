@@ -80,6 +80,55 @@
                 }
             }
         },
+        "cell2location_reference_options": {
+            "title": "Cell2location single-cell reference options",
+            "type": "object",
+            "fa_icon": "fas fa-cells",
+            "description": "Single-cell reference data and annotations used to train the Cell2location reference model.",
+            "properties": {
+                "cell2location_reference": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "pattern": "^\\S+\\.h5ad$",
+                    "description": "Path to the single-cell reference AnnData file.",
+                    "help_text": "The AnnData object must contain raw expression counts and a cell-type annotation in obs. The reference model is trained once and reused for all spatial samples.",
+                    "errorMessage": "The Cell2location reference must be an existing .h5ad file whose path does not contain spaces.",
+                    "fa_icon": "fas fa-file-medical"
+                },
+                "cell2location_cell_type_key": {
+                    "type": "string",
+                    "default": "cell_type",
+                    "minLength": 1,
+                    "description": "Column in the reference AnnData obs containing cell-type annotations.",
+                    "fa_icon": "fas fa-tags"
+                },
+                "cell2location_batch_key": {
+                    "type": "string",
+                    "default": "none",
+                    "minLength": 1,
+                    "description": "Column in the reference AnnData obs containing batch annotations.",
+                    "help_text": "Set this parameter to 'none' to train the reference model without batch correction.",
+                    "fa_icon": "fas fa-layer-group"
+                },
+                "cell2location_counts_layer": {
+                    "type": "string",
+                    "default": "X",
+                    "minLength": 1,
+                    "description": "Layer in the reference AnnData containing raw expression counts.",
+                    "help_text": "Set this parameter to 'X' when raw counts are stored in reference.X.",
+                    "fa_icon": "fas fa-table"
+                },
+                "cell2location_gene_key": {
+                    "type": "string",
+                    "default": "var_names",
+                    "minLength": 1,
+                    "description": "Column in the reference AnnData var containing gene identifiers.",
+                    "help_text": "Use 'var_names' when the gene identifiers are stored in reference.var_names.",
+                    "fa_icon": "fas fa-dna"
+                }
+            }
+        },
         "cell_segmentation_options": {
             "title": "Cell segmentation options",
             "type": "object",
@@ -392,6 +441,9 @@
         },
         {
             "$ref": "#/$defs/bin_level_matrix_analysis_options"
+        },
+        {
+            "$ref": "#/$defs/cell2location_reference_options"
         },
         {
             "$ref": "#/$defs/cell_segmentation_options"
