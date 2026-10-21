@@ -12,9 +12,41 @@ The directories listed below will be created in the results directory after the 
 
 The pipeline is built using [Nextflow](https://www.nextflow.io/) and processes data using the following steps:
 
+- [Raw SpatialData archive](#raw-spatialdata-archive) - SpatialData generated directly from Space Ranger output
+- [Final SpatialData](#final-spatialdata) - Analysis-ready SpatialData selected from the most advanced completed workflow branch
 - [FastQC](#fastqc) - Raw read QC
 - [MultiQC](#multiqc) - Aggregate report describing results and QC from the whole pipeline
 - [Pipeline information](#pipeline-information) - Report metrics generated during the workflow execution
+
+### Raw SpatialData archive
+
+<details markdown="1">
+<summary>Output files</summary>
+
+- `count/`
+  - `*.zarr.tar.gz`: Archived SpatialData generated directly from the Space Ranger output, before quality control and downstream analyses.
+
+</details>
+
+This archive is provided for completeness and long-term storage. Extract it before opening the contained Zarr directory with SpatialData.
+
+### Final SpatialData
+
+<details markdown="1">
+<summary>Output files</summary>
+
+- `spatialdata/`
+  - `*_spatialdata.zarr/`: Final SpatialData directory containing the most advanced result available for each sample.
+
+</details>
+
+The final output is published as an unpacked Zarr directory and can be opened directly:
+
+```python
+import spatialdata as sd
+
+sdata = sd.read_zarr("results/spatialdata/SAMPLE_spatialdata.zarr")
+```
 
 ### FastQC
 

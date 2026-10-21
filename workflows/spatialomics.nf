@@ -8,7 +8,7 @@ include { MULTIQC                     } from '../modules/nf-core/multiqc/main'
 include { SPACERANGER_COUNT           } from '../modules/nf-core/spaceranger/count/main'
 include { COLLECT_SPACERANGER_METRICS } from '../modules/local/collect_spaceranger_metrics/main'
 include { SPACERANGER_TO_ZARR         } from '../modules/local/spaceranger_to_zarr/main'
-include { TAR as TAR_RAW; TAR as TAR_FINAL } from '../modules/nf-core/tar/main'
+include { TAR as TAR_RAW               } from '../modules/nf-core/tar/main'
 include { SPATIAL_QUALITY_CONTROL     } from '../modules/local/spatial_quality_control/main'
 include { COLLECT_QC                  } from '../modules/local/collect_qc/main'
 include { CELL2LOCATION_REFERENCE     } from '../modules/local/cell2location/reference/main'
@@ -299,15 +299,6 @@ workflow SPATIALOMICS {
         .set { ch_final_zarr }
 
     //
-    // MODULE: Archive the final SpatialData selected for each sample
-    //
-    TAR_FINAL (
-        ch_final_zarr,
-        '.gz'
-    )
-    ch_versions = ch_versions.mix(TAR_FINAL.out.versions.first())
-
-    //
     // MODULE: Assemble imaging data to single-sample htmls for the MultiQC report
     //
 
@@ -416,7 +407,7 @@ workflow SPATIALOMICS {
     )
     emit:
     multiqc_report    = MULTIQC.out.report.map { _meta, report -> [report] }.toList() // channel: /path/to/multiqc_report.html
-    final_spatialdata = TAR_FINAL.out.archive                                        // channel: [ val(meta), path(archive) ]
+    final_spatialdata = ch_final_zarr                                                // channel: [ val(meta), path(zarr) ]
     versions          = ch_versions                                                   // channel: [ path(versions.yml) ]
 }
 

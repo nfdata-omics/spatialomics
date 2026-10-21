@@ -74,7 +74,7 @@ workflow NFDATAOMICS_SPATIALOMICS {
     )
     emit:
     multiqc_report    = SPATIALOMICS.out.multiqc_report    // channel: /path/to/multiqc_report.html
-    final_spatialdata = SPATIALOMICS.out.final_spatialdata // channel: [ val(meta), path(archive) ]
+    final_spatialdata = SPATIALOMICS.out.final_spatialdata // channel: [ val(meta), path(zarr) ]
 }
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -119,6 +119,17 @@ workflow {
         params.monochrome_logs,
         NFDATAOMICS_SPATIALOMICS.out.multiqc_report
     )
+
+    publish:
+    final_spatialdata = NFDATAOMICS_SPATIALOMICS.out.final_spatialdata
+}
+
+output {
+    final_spatialdata {
+        path { meta, zarr ->
+            zarr >> "spatialdata/${meta.id}_spatialdata.zarr"
+        }
+    }
 }
 
 /*
