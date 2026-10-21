@@ -1,6 +1,6 @@
 process CELL2LOCATION_DECONVOLUTION {
     tag "$meta.id"
-    label 'process_single', 'process_gpu'
+    label 'process_medium', 'process_gpu'
 
     conda "${moduleDir}/environment.yml"
     container 'docker.io/nfdata/cell2location-cuda:v0.1.5-torch2.8.0-cuda12.9'
