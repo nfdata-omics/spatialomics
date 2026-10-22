@@ -1,0 +1,147 @@
+name: cell2location_plots
+description: Plot Cell2location posterior summaries and prepare per-sample MultiQC inputs
+keywords:
+  - cell2location
+  - spatialdata
+  - spatial transcriptomics
+  - deconvolution
+  - visualisation
+tools:
+  - spatialdata:
+      description: Framework for processing spatial omics data
+      homepage: https://spatialdata.scverse.org/
+      documentation: https://spatialdata.scverse.org/en/stable/
+      licence: ["BSD-3-Clause"]
+  - spatialdata-plot:
+      description: Static plotting library for SpatialData objects
+      homepage: https://github.com/scverse/spatialdata-plot
+      documentation: https://spatialdata.scverse.org/projects/plot/en/stable/
+      licence: ["BSD-3-Clause"]
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information.
+          e.g. [ id:'NFG021_002' ]
+    - zarr_folder:
+        type: directory
+        description: SpatialData Zarr containing Cell2location posterior abundance summaries
+        pattern: "*_cell2location.zarr"
+  - table_key:
+      type: string
+      description: SpatialData table containing the Cell2location results
+  - abundance_statistic:
+      type: string
+      description: Posterior point estimate used for biological plots and tables; mean or q05
+  - uncertainty_min_abundance:
+      type: number
+      description: Minimum posterior mean included in relative uncertainty maps
+  - multiqc_cell_types:
+      type: string
+      description: Optional comma-separated list of up to three cell types for the compact MultiQC panel; an empty value selects the three most abundant types
+output:
+  posterior_mean_vs_q05:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information.
+            e.g. [ id:'NFG021_002' ]
+      - "*_posterior_mean_vs_q05.pdf":
+          type: file
+          description: Faceted comparison of posterior mean and q05 abundance
+          pattern: "*_posterior_mean_vs_q05.pdf"
+  posterior_uncertainty:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information.
+            e.g. [ id:'NFG021_002' ]
+      - "*_relative_posterior_uncertainty_spatial.pdf":
+          type: file
+          description: Spatial maps of relative posterior interval width for every cell type
+          pattern: "*_relative_posterior_uncertainty_spatial.pdf"
+  celltype_abundance:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information.
+            e.g. [ id:'NFG021_002' ]
+      - "*_celltype_abundance_*.pdf":
+          type: file
+          description: Spatial maps of absolute cell-type abundance
+          pattern: "*_celltype_abundance_*.pdf"
+  celltype_fraction:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information.
+            e.g. [ id:'NFG021_002' ]
+      - "*_celltype_fraction_*.pdf":
+          type: file
+          description: Spatial maps of within-location cell-type fractions
+          pattern: "*_celltype_fraction_*.pdf"
+  total_abundance:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information.
+            e.g. [ id:'NFG021_002' ]
+      - "*_total_abundance_*.pdf":
+          type: file
+          description: Distribution and spatial map of total estimated cell abundance
+          pattern: "*_total_abundance_*.pdf"
+  mqc_plot:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information.
+            e.g. [ id:'NFG021_002' ]
+      - "*_deconvolution_mqc.png":
+          type: file
+          description: Compact total-abundance and cell-type-composition panel for MultiQC
+          pattern: "*_deconvolution_mqc.png"
+  composition_mqc:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information.
+            e.g. [ id:'NFG021_002' ]
+      - "*_celltype_composition_*_mqc.tsv":
+          type: file
+          description: Whole-slide cell-type composition in MultiQC custom-content format
+          pattern: "*_celltype_composition_*_mqc.tsv"
+  summary_mqc:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information.
+            e.g. [ id:'NFG021_002' ]
+      - "*_deconvolution_summary_*_mqc.tsv":
+          type: file
+          description: Per-sample deconvolution summary in MultiQC custom-content format
+          pattern: "*_deconvolution_summary_*_mqc.tsv"
+  versions_container:
+    - - ${task.process}:
+          type: string
+          description: The process the versions were collected from
+      - container:
+          type: string
+          description: The runtime environment type
+      - docker.io/nfdata/spatialdata:v0.7.2:
+          type: string
+          description: The Docker image used by the module
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: The process the versions were collected from
+      - container:
+          type: string
+          description: The runtime environment type
+      - docker.io/nfdata/spatialdata:v0.7.2:
+          type: string
+          description: The Docker image used by the module
+containers:
+  docker:
+    linux/amd64:
+      name: docker.io/nfdata/spatialdata:v0.7.2

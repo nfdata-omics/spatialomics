@@ -1,0 +1,12 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/environment-schema.json
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.11
+  - matplotlib-base=3.10.8
+  - numpy=2.3.5
+  - pandas=2.3.3
+  - spatialdata=0.7.2
+  - spatialdata-plot=0.2.14
