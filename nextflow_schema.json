@@ -137,6 +137,37 @@
                 }
             }
         },
+        "cell2location_options": {
+            "title": "Cell2location result options",
+            "type": "object",
+            "fa_icon": "fas fa-map-marked-alt",
+            "description": "Parameters controlling Cell2location result summaries and plots.",
+            "properties": {
+                "cell2location_abundance_statistic": {
+                    "type": "string",
+                    "enum": ["mean", "q05"],
+                    "default": "mean",
+                    "description": "Posterior point estimate used for abundance, fraction and composition outputs.",
+                    "help_text": "Use 'mean' for quantitative abundance estimates or 'q05' for a conservative estimate of confidently present cells.",
+                    "fa_icon": "fas fa-chart-area"
+                },
+                "cell2location_uncertainty_min_abundance": {
+                    "type": "number",
+                    "default": 0.1,
+                    "minimum": 0,
+                    "description": "Minimum posterior mean abundance included in relative posterior uncertainty maps.",
+                    "help_text": "Locations at or below this value are masked to prevent unstable ratios when calculating (q95 - q05) / mean.",
+                    "fa_icon": "fas fa-filter"
+                },
+                "cell2location_multiqc_cell_types": {
+                    "type": ["string", "null"],
+                    "default": null,
+                    "description": "Optional comma-separated list of up to three cell types for the compact per-sample deconvolution panel.",
+                    "help_text": "Leave unset to select the three cell types with the highest whole-slide abundance independently for each sample.",
+                    "fa_icon": "fas fa-palette"
+                }
+            }
+        },
         "cell_segmentation_options": {
             "title": "Cell segmentation options",
             "type": "object",
@@ -452,6 +483,9 @@
         },
         {
             "$ref": "#/$defs/single_cell_reference_options"
+        },
+        {
+            "$ref": "#/$defs/cell2location_options"
         },
         {
             "$ref": "#/$defs/cell_segmentation_options"

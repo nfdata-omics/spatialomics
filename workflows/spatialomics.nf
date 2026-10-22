@@ -13,6 +13,7 @@ include { SPATIAL_QUALITY_CONTROL     } from '../modules/local/spatial_quality_c
 include { COLLECT_QC                  } from '../modules/local/collect_qc/main'
 include { CELL2LOCATION_REFERENCE     } from '../modules/local/cell2location/reference/main'
 include { CELL2LOCATION_DECONVOLUTION } from '../modules/local/cell2location/deconvolution/main'
+include { CELL2LOCATION_PLOTS         } from '../modules/local/cell2location/plots/main'
 include { CZI_TO_SPACERANGER_TIFF     } from '../modules/local/czi_to_spaceranger_tiff/main'
 include { PREPARE_SEGMENTATION_IMAGE  } from '../modules/local/prepare_segmentation_image/main'
 include { EXTRACT_VISIUM_REGION       } from '../modules/local/extract_visium_region/main'
@@ -206,6 +207,17 @@ workflow SPATIALOMICS {
             SPATIAL_QUALITY_CONTROL.out.zarr,
             ch_cell2location_signatures
         )
+
+        // Generate complete per-sample result plots and the files that will be
+        // connected to MultiQC in a subsequent implementation step.
+        CELL2LOCATION_PLOTS (
+            CELL2LOCATION_DECONVOLUTION.out.zarr,
+            params.bin_analysis_bin_size,
+            params.cell2location_abundance_statistic,
+            params.cell2location_uncertainty_min_abundance,
+            params.cell2location_multiqc_cell_types ?: ''
+        )
+
         ch_zarr_before_segmentation = CELL2LOCATION_DECONVOLUTION.out.zarr
     } else {
         ch_zarr_before_segmentation = SPATIAL_QUALITY_CONTROL.out.zarr
