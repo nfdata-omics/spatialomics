@@ -25,7 +25,7 @@ def parse_args():
     )
     parser.add_argument(
         "--gene-key",
-        default="gene_ids",
+        default="var_names",
         help="Spatial var column containing gene IDs, or var_names",
     )
     parser.add_argument("--max-epochs", type=int, default=200)
@@ -139,11 +139,35 @@ def main():
         raise ValueError(f"Spatial gene IDs are not unique; examples: {duplicates}")
 
     shared_genes = spatial_gene_ids.intersection(signatures.index, sort=False)
+    print(f"Spatial gene key: {args.gene_key}")
+    print(f"Reference gene ID examples: {signatures.index[:5].tolist()}")
+    print(f"Spatial gene ID examples: {spatial_gene_ids[:5].tolist()}")
     print(f"Shared genes: {len(shared_genes)}")
     if len(shared_genes) < args.minimum_shared_genes:
+        alternative_overlaps = []
+        for alternative_key in ("var_names", "gene_ids"):
+            if alternative_key == args.gene_key:
+                continue
+            if alternative_key == "var_names":
+                alternative_ids = pd.Index(adata.var_names.astype(str))
+            elif alternative_key in adata.var:
+                alternative_ids = pd.Index(adata.var[alternative_key].astype(str))
+            else:
+                continue
+            alternative_overlap = len(
+                alternative_ids.intersection(signatures.index, sort=False)
+            )
+            alternative_overlaps.append(f"{alternative_key}={alternative_overlap}")
+        alternative_message = (
+            f" Alternative spatial gene-key overlaps: {', '.join(alternative_overlaps)}."
+            if alternative_overlaps
+            else ""
+        )
         raise ValueError(
             f"Only {len(shared_genes)} genes are shared between reference and spatial data; "
-            f"expected at least {args.minimum_shared_genes}. Check the gene ID options."
+            f"expected at least {args.minimum_shared_genes}. The selected spatial gene key is "
+            f"'{args.gene_key}'.{alternative_message} Check that reference and spatial gene "
+            "identifiers use the same namespace, such as gene symbols or Ensembl IDs."
         )
 
     keep_genes = spatial_gene_ids.isin(shared_genes)

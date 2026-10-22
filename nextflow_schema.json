@@ -77,6 +77,14 @@
                     "maximum": 100,
                     "description": "Maximum mitochondrial counts percentage threshold for bin-level quality control.",
                     "fa_icon": "fas fa-filter"
+                },
+                "spatial_gene_key": {
+                    "type": "string",
+                    "default": "var_names",
+                    "minLength": 1,
+                    "description": "Column in the spatial AnnData var containing gene identifiers used to match external datasets.",
+                    "help_text": "Use 'var_names' when gene identifiers are stored in the spatial table var_names index.",
+                    "fa_icon": "fas fa-dna"
                 }
             }
         },
