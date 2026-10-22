@@ -10,6 +10,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+import anndata
 import dask.array as da
 import geopandas as gpd
 import matplotlib
@@ -464,6 +465,7 @@ def save_zarr(sdata, output_zarr, overwrite):
             output_zarr.unlink()
 
     output_zarr.parent.mkdir(parents=True, exist_ok=True)
+    anndata.settings.allow_write_nullable_strings = True
     sdata.write(output_zarr)
 
 
@@ -833,6 +835,7 @@ def main():
 
     if args.versions_dict:
         libs = [
+            "anndata",
             "dask",
             "geopandas",
             "matplotlib",
