@@ -283,7 +283,9 @@ def main():
                 "Observed and expected reconstruction matrices have different shapes: "
                 f"{observed_counts.shape} and {expected_counts.shape}"
             )
-        if not np.isfinite(observed_counts).all() or not np.isfinite(expected_counts).all():
+        if not np.isfinite(observed_counts).all() or not np.isfinite(
+            expected_counts
+        ).all():
             raise ValueError("Observed or expected reconstruction values are not finite")
         if (observed_counts < 0).any() or (expected_counts < 0).any():
             raise ValueError("Observed or expected reconstruction values are negative")
@@ -301,7 +303,8 @@ def main():
                 "n_locations": int(len(reconstruction_indices)),
             }
         )
-    except Exception as error:  # Keep the expensive deconvolution result if diagnostic plotting fails.
+        del expected_parameters, observed_counts, expected_counts
+    except Exception as error:  # Keep the inference result if optional QC calculation fails.
         reconstruction_qc.update(
             {
                 "status": "failed",
@@ -346,6 +349,10 @@ def main():
     }
     table.uns["cell2location"] = cell2location_metadata
     sdata.tables[args.table_key] = table
+
+    del model
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
 
     args.output_zarr.parent.mkdir(parents=True, exist_ok=True)
     args.output_abundance_mean.parent.mkdir(parents=True, exist_ok=True)

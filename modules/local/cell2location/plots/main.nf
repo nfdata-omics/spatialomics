@@ -23,8 +23,8 @@ process CELL2LOCATION_PLOTS {
     tuple val(meta), path("*_deconvolution_summary_*_mqc.tsv"),            emit: summary_mqc
     tuple val(meta), path("*_training_history.csv"),                        emit: training_history
     tuple val(meta), path("*_training_history.png"),                        emit: training_history_plot
-    tuple val(meta), path("*_reconstruction_accuracy.png", optional: true), emit: reconstruction_accuracy
-    tuple val(meta), path("*_reconstruction_accuracy_error.txt", optional: true), emit: reconstruction_error
+    tuple val(meta), path("*_reconstruction_accuracy.png"),                emit: reconstruction_accuracy, optional: true
+    tuple val(meta), path("*_reconstruction_accuracy_error.txt"),          emit: reconstruction_error, optional: true
     tuple val(meta), path("*_diagnostics.tsv"),                             emit: diagnostics
     tuple val("${task.process}"), val('container'), val('docker.io/nfdata/spatialdata:v0.7.2'), emit: versions_container, topic: versions
 

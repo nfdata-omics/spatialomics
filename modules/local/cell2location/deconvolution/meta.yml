@@ -36,7 +36,7 @@ output:
             e.g. [ id:'NFG021_002' ]
       - "*_cell2location.zarr":
           type: directory
-          description: SpatialData Zarr containing posterior mean, standard deviation, q05, and q95 cell-type abundance estimates
+          description: SpatialData Zarr containing posterior abundance estimates and compact training and reconstruction diagnostics
           pattern: "*_cell2location.zarr"
   abundance_mean:
     - - meta:

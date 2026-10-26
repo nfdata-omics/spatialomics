@@ -60,11 +60,16 @@ def parse_args():
 def read_training_history(metadata):
     """Validate and return the training history stored by deconvolution."""
     history = metadata.get("training_history")
-    if not isinstance(history, dict):
+    if isinstance(history, dict):
+        epochs = np.asarray(history.get("epoch", []))
+        elbo = np.asarray(history.get("elbo_train", []), dtype=float)
+    elif history is not None:
+        # Backward compatibility with SpatialData produced before epochs were
+        # stored explicitly alongside the ELBO values.
+        elbo = np.asarray(history, dtype=float)
+        epochs = np.arange(len(elbo))
+    else:
         raise ValueError("table.uns['cell2location']['training_history'] is missing")
-
-    epochs = np.asarray(history.get("epoch", []))
-    elbo = np.asarray(history.get("elbo_train", []), dtype=float)
     if epochs.ndim != 1 or elbo.ndim != 1 or len(epochs) != len(elbo):
         raise ValueError("Cell2location training-history arrays are not aligned")
     if len(epochs) == 0:
@@ -96,8 +101,12 @@ def plot_reconstruction_accuracy(reconstruction_qc, output_path):
         return False
 
     histogram = np.asarray(reconstruction_qc.get("histogram"), dtype=float)
-    observed_edges = np.asarray(reconstruction_qc.get("observed_log10_edges"), dtype=float)
-    expected_edges = np.asarray(reconstruction_qc.get("expected_log10_edges"), dtype=float)
+    observed_edges = np.asarray(
+        reconstruction_qc.get("observed_log10_edges"), dtype=float
+    )
+    expected_edges = np.asarray(
+        reconstruction_qc.get("expected_log10_edges"), dtype=float
+    )
     if histogram.ndim != 2:
         raise ValueError("Reconstruction histogram is not two-dimensional")
     if len(observed_edges) != histogram.shape[0] + 1:
@@ -118,12 +127,18 @@ def plot_reconstruction_accuracy(reconstruction_qc, output_path):
         expected_edges,
         np.ma.masked_less_equal(histogram.T, 0),
         cmap="viridis",
-        norm=LogNorm(vmin=1, vmax=max(1, float(positive_counts.max()))),
+        norm=LogNorm(vmin=1, vmax=max(2, float(positive_counts.max()))),
         shading="auto",
     )
     lower = min(float(observed_edges[0]), float(expected_edges[0]))
     upper = max(float(observed_edges[-1]), float(expected_edges[-1]))
-    axis.plot([lower, upper], [lower, upper], color="black", linestyle="--", linewidth=0.8)
+    axis.plot(
+        [lower, upper],
+        [lower, upper],
+        color="black",
+        linestyle="--",
+        linewidth=0.8,
+    )
     axis.set(
         title="Reconstruction accuracy",
         xlabel="Observed counts, log10(count + 1)",
@@ -772,7 +787,9 @@ def main():
             {
                 "total_locations": int(table.n_obs),
                 "modelled_locations": int(modelled.sum()),
-                "shared_genes": int(cell2location_metadata.get("n_shared_genes", table.n_vars)),
+                "shared_genes": int(
+                    cell2location_metadata.get("n_shared_genes", table.n_vars)
+                ),
                 "cell_types": int(len(cell_types)),
                 "epochs_completed": int(len(training_history)),
                 "initial_elbo": float(training_history["elbo_train"].iloc[0]),

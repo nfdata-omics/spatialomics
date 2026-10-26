@@ -1,5 +1,5 @@
 name: cell2location_plots
-description: Plot Cell2location posterior summaries and prepare per-sample MultiQC inputs
+description: Plot Cell2location training diagnostics and posterior summaries and prepare per-sample MultiQC inputs
 keywords:
   - cell2location
   - spatialdata
