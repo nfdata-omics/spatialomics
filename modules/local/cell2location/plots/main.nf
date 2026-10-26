@@ -21,6 +21,11 @@ process CELL2LOCATION_PLOTS {
     tuple val(meta), path("*_deconvolution_mqc.png"),                      emit: mqc_plot
     tuple val(meta), path("*_celltype_composition_*_mqc.tsv"),             emit: composition_mqc
     tuple val(meta), path("*_deconvolution_summary_*_mqc.tsv"),            emit: summary_mqc
+    tuple val(meta), path("*_training_history.csv"),                        emit: training_history
+    tuple val(meta), path("*_training_history.png"),                        emit: training_history_plot
+    tuple val(meta), path("*_reconstruction_accuracy.png", optional: true), emit: reconstruction_accuracy
+    tuple val(meta), path("*_reconstruction_accuracy_error.txt", optional: true), emit: reconstruction_error
+    tuple val(meta), path("*_diagnostics.tsv"),                             emit: diagnostics
     tuple val("${task.process}"), val('container'), val('docker.io/nfdata/spatialdata:v0.7.2'), emit: versions_container, topic: versions
 
     when:
@@ -64,5 +69,9 @@ END_SCRIPT
     touch "${prefix}_deconvolution_mqc.png"
     touch "${prefix}_celltype_composition_${abundance_statistic}_mqc.tsv"
     touch "${prefix}_deconvolution_summary_${abundance_statistic}_mqc.tsv"
+    touch "${prefix}_training_history.csv"
+    touch "${prefix}_training_history.png"
+    touch "${prefix}_reconstruction_accuracy.png"
+    touch "${prefix}_diagnostics.tsv"
     """
 }

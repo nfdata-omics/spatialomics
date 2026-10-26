@@ -15,7 +15,6 @@ def parse_args():
     parser.add_argument("--output-zarr", type=Path)
     parser.add_argument("--output-abundance-mean", type=Path)
     parser.add_argument("--output-abundance-q05", type=Path)
-    parser.add_argument("--output-diagnostics", type=Path)
     parser.add_argument("--table-key", default="square_016um")
     parser.add_argument("--qc-pass-key", default="qc_pass")
     parser.add_argument(
@@ -56,7 +55,6 @@ def main():
             "output_zarr",
             "output_abundance_mean",
             "output_abundance_q05",
-            "output_diagnostics",
         )
         if getattr(args, name) is None
     ]
@@ -86,10 +84,8 @@ def main():
     import pandas as pd
     import spatialdata as sd
     import torch
-    import matplotlib
-
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
+    from scipy.sparse import issparse
+    from scvi import REGISTRY_KEYS
 
     import cell2location
     from cell2location.models import Cell2location
@@ -259,60 +255,63 @@ def main():
         table.obs[output_key] = full_values
         detection_sensitivity_keys[summary_name] = output_key
 
-    args.output_diagnostics.mkdir(parents=True, exist_ok=True)
-    training_history.to_csv(args.output_diagnostics / "training_history.csv", index=False)
-
-    history_start = max(1, int(len(training_history) * 0.2))
-    fig, axes = plt.subplots(1, 2, figsize=(12, 4.5))
-    axes[0].plot(training_history["epoch"], training_history["elbo_train"])
-    axes[0].set(title="Complete training history", xlabel="Epoch", ylabel="-ELBO loss")
-    axes[1].plot(
-        training_history["epoch"].iloc[history_start:],
-        training_history["elbo_train"].iloc[history_start:],
-    )
-    axes[1].set(title="Training history after first 20%", xlabel="Epoch", ylabel="-ELBO loss")
-    fig.tight_layout()
-    fig.savefig(args.output_diagnostics / "training_history.png", dpi=200)
-    plt.close(fig)
-
-    reconstruction_status = "success"
-    reconstruction_error = ""
+    reconstruction_qc = {
+        "status": "success",
+        "error": "",
+    }
     try:
-        np.random.seed(args.seed)
-        model.plot_QC(
-            summary_name="means",
-            use_n_obs=min(args.qc_num_locations, adata.n_obs),
+        random_generator = np.random.default_rng(args.seed)
+        reconstruction_indices = random_generator.choice(
+            adata.n_obs,
+            min(args.qc_num_locations, adata.n_obs),
+            replace=False,
         )
-        fig = plt.gcf()
-        fig.savefig(args.output_diagnostics / "reconstruction_accuracy.png", dpi=200)
-        plt.close(fig)
+        expected_parameters = model.module.model.compute_expected(
+            model.samples["post_sample_means"],
+            model.adata_manager,
+            ind_x=reconstruction_indices,
+        )
+        observed_counts = model.adata_manager.get_from_registry(REGISTRY_KEYS.X_KEY)[
+            reconstruction_indices, :
+        ]
+        if issparse(observed_counts):
+            observed_counts = observed_counts.toarray()
+        observed_counts = np.asarray(observed_counts)
+        expected_counts = np.asarray(expected_parameters["mu"])
+        if observed_counts.shape != expected_counts.shape:
+            raise ValueError(
+                "Observed and expected reconstruction matrices have different shapes: "
+                f"{observed_counts.shape} and {expected_counts.shape}"
+            )
+        if not np.isfinite(observed_counts).all() or not np.isfinite(expected_counts).all():
+            raise ValueError("Observed or expected reconstruction values are not finite")
+        if (observed_counts < 0).any() or (expected_counts < 0).any():
+            raise ValueError("Observed or expected reconstruction values are negative")
+
+        reconstruction_histogram, observed_edges, expected_edges = np.histogram2d(
+            np.log10(observed_counts.ravel() + 1),
+            np.log10(expected_counts.ravel() + 1),
+            bins=50,
+        )
+        reconstruction_qc.update(
+            {
+                "histogram": reconstruction_histogram.astype(np.int64),
+                "observed_log10_edges": observed_edges,
+                "expected_log10_edges": expected_edges,
+                "n_locations": int(len(reconstruction_indices)),
+            }
+        )
     except Exception as error:  # Keep the expensive deconvolution result if diagnostic plotting fails.
-        reconstruction_status = "failed"
-        reconstruction_error = str(error).replace("\t", " ").replace("\n", " ")
-        (args.output_diagnostics / "reconstruction_accuracy_error.txt").write_text(
-            f"{type(error).__name__}: {error}\n",
-            encoding="utf-8",
+        reconstruction_qc.update(
+            {
+                "status": "failed",
+                "error": f"{type(error).__name__}: {error}".replace("\t", " ").replace(
+                    "\n", " "
+                ),
+            }
         )
-        plt.close("all")
 
     final_elbo = float(training_history["elbo_train"].iloc[-1])
-    diagnostics = pd.DataFrame(
-        [
-            {
-                "total_locations": int(table.n_obs),
-                "modelled_locations": int(adata.n_obs),
-                "shared_genes": int(len(shared_genes)),
-                "cell_types": int(len(cell_types)),
-                "epochs_completed": int(len(training_history)),
-                "initial_elbo": float(training_history["elbo_train"].iloc[0]),
-                "final_elbo": final_elbo,
-                "reconstruction_plot": reconstruction_status,
-                "reconstruction_error": reconstruction_error,
-            }
-        ]
-    )
-    diagnostics.to_csv(args.output_diagnostics / "diagnostics.tsv", sep="\t", index=False)
-
     cell2location_metadata = {
         "model_name": posterior_metadata.get("model_name", "Cell2location"),
         "cell2location_version": getattr(cell2location, "__version__", "unknown"),
@@ -339,8 +338,11 @@ def main():
         "accelerator": accelerator,
         "initial_elbo": float(training_history["elbo_train"].iloc[0]),
         "final_elbo": final_elbo,
-        "training_history": training_history["elbo_train"].tolist(),
-        "reconstruction_plot": reconstruction_status,
+        "training_history": {
+            "epoch": training_history["epoch"].to_numpy(),
+            "elbo_train": training_history["elbo_train"].to_numpy(),
+        },
+        "reconstruction_qc": reconstruction_qc,
     }
     table.uns["cell2location"] = cell2location_metadata
     sdata.tables[args.table_key] = table
@@ -360,7 +362,6 @@ def main():
     print(f"Wrote deconvolved SpatialData: {args.output_zarr}")
     print(f"Wrote mean cell-type abundance table: {args.output_abundance_mean}")
     print(f"Wrote q05 cell-type abundance table: {args.output_abundance_q05}")
-    print(f"Wrote model diagnostics: {args.output_diagnostics}")
 
 
 if __name__ == "__main__":

@@ -120,6 +120,48 @@ output:
           type: file
           description: Per-sample deconvolution summary in MultiQC custom-content format
           pattern: "*_deconvolution_summary_*_mqc.tsv"
+  training_history:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "*_training_history.csv":
+          type: file
+          description: Cell2location epoch and training ELBO history
+          pattern: "*_training_history.csv"
+  training_history_plot:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "*_training_history.png":
+          type: file
+          description: Cell2location training-history diagnostic plot
+          pattern: "*_training_history.png"
+  reconstruction_accuracy:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "*_reconstruction_accuracy.png":
+          type: file
+          description: Expected-versus-observed reconstruction diagnostic plot
+          pattern: "*_reconstruction_accuracy.png"
+          optional: true
+  reconstruction_error:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "*_reconstruction_accuracy_error.txt":
+          type: file
+          description: Error recorded when reconstruction QC data could not be computed
+          pattern: "*_reconstruction_accuracy_error.txt"
+          optional: true
+  diagnostics:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "*_diagnostics.tsv":
+          type: file
+          description: Cell2location training and reconstruction diagnostic metrics
+          pattern: "*_diagnostics.tsv"
   versions_container:
     - - ${task.process}:
           type: string

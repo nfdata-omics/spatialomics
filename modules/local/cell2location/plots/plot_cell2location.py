@@ -57,6 +57,88 @@ def parse_args():
     return parser.parse_args()
 
 
+def read_training_history(metadata):
+    """Validate and return the training history stored by deconvolution."""
+    history = metadata.get("training_history")
+    if not isinstance(history, dict):
+        raise ValueError("table.uns['cell2location']['training_history'] is missing")
+
+    epochs = np.asarray(history.get("epoch", []))
+    elbo = np.asarray(history.get("elbo_train", []), dtype=float)
+    if epochs.ndim != 1 or elbo.ndim != 1 or len(epochs) != len(elbo):
+        raise ValueError("Cell2location training-history arrays are not aligned")
+    if len(epochs) == 0:
+        raise ValueError("Cell2location training history is empty")
+    if not np.isfinite(elbo).all():
+        raise ValueError("Cell2location training history contains non-finite ELBO values")
+    return pd.DataFrame({"epoch": epochs, "elbo_train": elbo})
+
+
+def plot_training_history(training_history, output_path):
+    """Plot complete and post-warmup Cell2location training histories."""
+    history_start = max(1, int(len(training_history) * 0.2))
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4.5))
+    axes[0].plot(training_history["epoch"], training_history["elbo_train"])
+    axes[0].set(title="Complete training history", xlabel="Epoch", ylabel="-ELBO loss")
+    axes[1].plot(
+        training_history["epoch"].iloc[history_start:],
+        training_history["elbo_train"].iloc[history_start:],
+    )
+    axes[1].set(title="Training history after first 20%", xlabel="Epoch", ylabel="-ELBO loss")
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=200)
+    plt.close(fig)
+
+
+def plot_reconstruction_accuracy(reconstruction_qc, output_path):
+    """Render the expected-vs-observed histogram computed during deconvolution."""
+    if reconstruction_qc.get("status") != "success":
+        return False
+
+    histogram = np.asarray(reconstruction_qc.get("histogram"), dtype=float)
+    observed_edges = np.asarray(reconstruction_qc.get("observed_log10_edges"), dtype=float)
+    expected_edges = np.asarray(reconstruction_qc.get("expected_log10_edges"), dtype=float)
+    if histogram.ndim != 2:
+        raise ValueError("Reconstruction histogram is not two-dimensional")
+    if len(observed_edges) != histogram.shape[0] + 1:
+        raise ValueError("Observed reconstruction edges do not match the histogram")
+    if len(expected_edges) != histogram.shape[1] + 1:
+        raise ValueError("Expected reconstruction edges do not match the histogram")
+    if not np.isfinite(histogram).all() or (histogram < 0).any():
+        raise ValueError("Reconstruction histogram contains invalid counts")
+    if not np.isfinite(observed_edges).all() or not np.isfinite(expected_edges).all():
+        raise ValueError("Reconstruction histogram edges are not finite")
+    positive_counts = histogram[histogram > 0]
+    if positive_counts.size == 0:
+        raise ValueError("Reconstruction histogram contains no observations")
+
+    fig, axis = plt.subplots(figsize=(6, 5.5))
+    mesh = axis.pcolormesh(
+        observed_edges,
+        expected_edges,
+        np.ma.masked_less_equal(histogram.T, 0),
+        cmap="viridis",
+        norm=LogNorm(vmin=1, vmax=max(1, float(positive_counts.max()))),
+        shading="auto",
+    )
+    lower = min(float(observed_edges[0]), float(expected_edges[0]))
+    upper = max(float(observed_edges[-1]), float(expected_edges[-1]))
+    axis.plot([lower, upper], [lower, upper], color="black", linestyle="--", linewidth=0.8)
+    axis.set(
+        title="Reconstruction accuracy",
+        xlabel="Observed counts, log10(count + 1)",
+        ylabel="Posterior expected counts, log10(count + 1)",
+        xlim=(lower, upper),
+        ylim=(lower, upper),
+    )
+    axis.set_aspect("equal", adjustable="box")
+    fig.colorbar(mesh, ax=axis, label="Gene-location pairs per bin")
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=200)
+    plt.close(fig)
+    return True
+
+
 def plot_posterior_mean_vs_q05(mean, q05, sample_name, output_path):
     """Plot faceted hexbins comparing posterior mean and q05."""
     cell_types = mean.columns.tolist()
@@ -523,7 +605,10 @@ def main():
     if missing_keys:
         raise KeyError(f"Missing Cell2location posterior matrices: {', '.join(missing_keys)}")
 
-    metadata_cell_types = table.uns.get("cell2location", {}).get("cell_types")
+    cell2location_metadata = table.uns.get("cell2location")
+    if not isinstance(cell2location_metadata, dict):
+        raise ValueError("table.uns['cell2location'] is missing")
+    metadata_cell_types = cell2location_metadata.get("cell_types")
     posterior = {}
     for summary_name, key in posterior_keys.items():
         values = table.obsm[key]
@@ -661,6 +746,43 @@ def main():
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     prefix = args.output_dir / output_prefix
+
+    training_history = read_training_history(cell2location_metadata)
+    training_history.to_csv(f"{prefix}_training_history.csv", index=False)
+    plot_training_history(training_history, Path(f"{prefix}_training_history.png"))
+
+    reconstruction_qc = cell2location_metadata.get("reconstruction_qc", {})
+    reconstruction_plot_status = "failed"
+    reconstruction_error = str(reconstruction_qc.get("error", ""))
+    if plot_reconstruction_accuracy(
+        reconstruction_qc,
+        Path(f"{prefix}_reconstruction_accuracy.png"),
+    ):
+        reconstruction_plot_status = "success"
+    else:
+        if not reconstruction_error:
+            reconstruction_error = "Reconstruction QC data are unavailable"
+        Path(f"{prefix}_reconstruction_accuracy_error.txt").write_text(
+            reconstruction_error + "\n",
+            encoding="utf-8",
+        )
+
+    diagnostics = pd.DataFrame(
+        [
+            {
+                "total_locations": int(table.n_obs),
+                "modelled_locations": int(modelled.sum()),
+                "shared_genes": int(cell2location_metadata.get("n_shared_genes", table.n_vars)),
+                "cell_types": int(len(cell_types)),
+                "epochs_completed": int(len(training_history)),
+                "initial_elbo": float(training_history["elbo_train"].iloc[0]),
+                "final_elbo": float(training_history["elbo_train"].iloc[-1]),
+                "reconstruction_plot": reconstruction_plot_status,
+                "reconstruction_error": reconstruction_error,
+            }
+        ]
+    )
+    diagnostics.to_csv(f"{prefix}_diagnostics.tsv", sep="\t", index=False)
 
     plot_posterior_mean_vs_q05(
         posterior["mean"].loc[modelled],
