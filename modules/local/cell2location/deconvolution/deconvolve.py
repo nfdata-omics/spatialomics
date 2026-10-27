@@ -201,6 +201,7 @@ def main():
         sample_kwargs={
             "num_samples": args.posterior_num_samples,
             "batch_size": args.posterior_batch_size,
+            "summary_frequency": 1,
             "accelerator": accelerator,
         },
         add_to_obsm=["means", "stds", "q05", "q95"],
