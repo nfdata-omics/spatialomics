@@ -60,14 +60,20 @@ workflow SPATIALOMICS {
     //
     // SUBWORKFLOW: Prepare reference genome
     //
-    PREPARE_REF (
-        ch_fasta,
-        ch_gtf,
-        ch_gff,
-        ch_spaceranger_index,
-        params.reference_name
-    )
-    ch_versions = ch_versions.mix(PREPARE_REF.out.versions)
+    ch_prepared_spaceranger_index = channel.empty()
+    def reference_requested = params.spaceranger_index || params.fasta || params.gtf || params.gff
+
+    if (reference_requested) {
+        PREPARE_REF (
+            ch_fasta,
+            ch_gtf,
+            ch_gff,
+            ch_spaceranger_index,
+            params.reference_name
+        )
+        ch_prepared_spaceranger_index = PREPARE_REF.out.spaceranger_index
+        ch_versions = ch_versions.mix(PREPARE_REF.out.versions)
+    }
 
     //
     // SUBWORKFLOW: Prepare FastQ files
@@ -119,7 +125,7 @@ workflow SPATIALOMICS {
     SPACERANGER_COUNT(
         ch_reads_with_meta.reads,
         ch_reads_with_meta.slide_and_img,
-        PREPARE_REF.out.spaceranger_index,
+        ch_prepared_spaceranger_index,
         ch_probeset
     )
     ch_versions = ch_versions.mix(SPACERANGER_COUNT.out.versions)

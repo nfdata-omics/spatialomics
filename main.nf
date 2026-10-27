@@ -50,7 +50,7 @@ workflow NFDATAOMICS_SPATIALOMICS {
     ch_gtf                = params.gtf               ? channel.value(file(params.gtf, checkIfExists: true))               : channel.empty()
     ch_gff                = params.gff               ? channel.value(file(params.gff, checkIfExists: true))               : channel.empty()
     ch_spaceranger_index  = params.spaceranger_index ? file(params.spaceranger_index, checkIfExists: true) : channel.empty()
-    ch_probeset           = params.probeset          ? channel.value(file(params.probeset, checkIfExists: true))          : channel.empty()
+    ch_probeset           = params.probeset          ? channel.value(file(params.probeset, checkIfExists: true))          : channel.value([])
 
     // Define channel for the optional single-cell reference dataset
     ch_single_cell_reference = params.single_cell_reference_h5ad ? channel.value(file(params.single_cell_reference_h5ad, checkIfExists: true)) : channel.empty()

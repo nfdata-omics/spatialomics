@@ -93,6 +93,21 @@ workflow PIPELINE_INITIALISATION {
     def samplesheet_list = samplesheetToList(input, "${projectDir}/assets/schema_input.json")
     warnPrecomputedRegistrationAssumption(samplesheet_list)
 
+    // A Space Ranger reference is required only when at least one sample must
+    // be processed from FASTQ. Pre-computed Space Ranger outputs can proceed
+    // directly to the downstream SpatialData workflow without a reference.
+    def has_fastq_input = samplesheet_list.any {
+        _meta, fastq_1, _fastq_2, _spaceranger -> fastq_1
+    }
+
+    if (has_fastq_input) {
+        assert params.spaceranger_index || (params.fasta && (params.gtf || params.gff)):
+            "FASTQ input requires --spaceranger_index or --fasta with --gtf/--gff"
+
+        assert params.spaceranger_index || params.reference_name:
+            "Building a Space Ranger reference requires --reference_name"
+    }
+
     channel
         .fromList(samplesheet_list)
         .filter { _meta, fastq_1, _fastq_2, _spaceranger -> fastq_1 }
