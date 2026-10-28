@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 import spatialdata as sd
 import spatialdata_plot  # noqa: F401  # pylint: disable=unused-import
+from matplotlib.cm import ScalarMappable
 from matplotlib.colors import LogNorm, Normalize, to_hex, to_rgb
 from matplotlib.patches import Patch
 
@@ -209,20 +210,21 @@ def plot_posterior_mean_vs_q05(mean, q05, sample_name, output_path):
             xlabel="log1p(posterior mean)",
             ylabel="log1p(posterior q05)",
         )
+        axis.title.set_fontsize(9)
         axis.set_aspect("equal")
 
     for axis in axes.ravel()[len(cell_types) :]:
         axis.set_visible(False)
 
     if last_hexbin is not None:
+        colorbar_axis = fig.add_axes([0.91, 0.18, 0.018, 0.64])
         fig.colorbar(
             last_hexbin,
-            ax=axes.ravel().tolist(),
+            cax=colorbar_axis,
             label="Spatial locations per hexagon",
-            shrink=0.75,
         )
-    fig.suptitle(f"{sample_name}: posterior mean versus q05", fontsize=14)
-    fig.subplots_adjust(top=0.93, wspace=0.35, hspace=0.4)
+    fig.suptitle(f"{sample_name}: posterior mean versus q05", fontsize=14, y=0.995)
+    fig.subplots_adjust(left=0.07, right=0.87, top=0.90, bottom=0.09, wspace=0.35, hspace=0.42)
     fig.savefig(output_path, bbox_inches="tight")
     plt.close(fig)
 
@@ -249,27 +251,38 @@ def plot_relative_posterior_uncertainty(
     )
 
     for axis, cell_type, column in zip(axes.ravel(), cell_types, uncertainty_columns):
+        norm = Normalize(vmin=0, vmax=uncertainty_vmax)
         if image_key:
-            plot = sdata.pl.render_images(image_key).pl.render_shapes(
+            plot = sdata.pl.render_images(image_key, cmap="gray").pl.render_shapes(
                 shape_key,
                 color=column,
                 cmap="magma",
-                norm=Normalize(vmin=0, vmax=uncertainty_vmax),
+                norm=norm,
                 fill_alpha=0.75,
                 outline_width=0,
                 na_color="#00000000",
+                colorbar=False,
             )
         else:
             plot = sdata.pl.render_shapes(
                 shape_key,
                 color=column,
                 cmap="magma",
-                norm=Normalize(vmin=0, vmax=uncertainty_vmax),
+                norm=norm,
                 fill_alpha=0.9,
                 outline_width=0,
                 na_color="#00000000",
+                colorbar=False,
             )
-        plot.pl.show(coordinate_systems=coordinate_system, ax=axis)
+        plot.pl.show(coordinate_systems=coordinate_system, ax=axis, colorbar=False)
+        colorbar = fig.colorbar(
+            ScalarMappable(norm=norm, cmap="magma"),
+            ax=axis,
+            fraction=0.046,
+            pad=0.03,
+        )
+        colorbar.set_label("(q95 - q05) / mean", fontsize=8)
+        colorbar.ax.tick_params(labelsize=7)
         axis.set_title(cell_type, fontsize=9)
         axis.set_axis_off()
 
@@ -280,8 +293,9 @@ def plot_relative_posterior_uncertainty(
         f"Relative posterior interval width: (q95 - q05) / mean\n"
         f"Locations with mean < {minimum_abundance:g} are masked",
         fontsize=13,
+        y=0.995,
     )
-    fig.subplots_adjust(top=0.94, wspace=0.15, hspace=0.2)
+    fig.subplots_adjust(top=0.88, wspace=0.15, hspace=0.2)
     fig.savefig(output_path, bbox_inches="tight")
     plt.close(fig)
 
@@ -307,39 +321,55 @@ def plot_celltype_abundance(
         squeeze=False,
     )
 
-    for axis, cell_type, column in zip(axes.ravel(), cell_types, abundance_columns):
+    abundance_percentiles = []
+    for cell_type in cell_types:
         values = abundance[cell_type].dropna().to_numpy()
-        vmax = float(np.percentile(values, 99)) if values.size else 1.0
-        vmax = max(vmax, np.finfo(float).eps)
+        if values.size:
+            abundance_percentiles.append(float(np.percentile(values, 99)))
+    abundance_vmax = max(abundance_percentiles, default=1.0)
+    abundance_vmax = max(abundance_vmax, np.finfo(float).eps)
+    norm = Normalize(vmin=0, vmax=abundance_vmax)
+
+    for axis, cell_type, column in zip(axes.ravel(), cell_types, abundance_columns):
         if image_key:
-            plot = sdata.pl.render_images(image_key).pl.render_shapes(
+            plot = sdata.pl.render_images(image_key, cmap="gray").pl.render_shapes(
                 shape_key,
                 color=column,
                 cmap="viridis",
-                norm=Normalize(vmin=0, vmax=vmax),
+                norm=norm,
                 fill_alpha=0.75,
                 outline_width=0,
                 na_color="#00000000",
+                colorbar=False,
             )
         else:
             plot = sdata.pl.render_shapes(
                 shape_key,
                 color=column,
                 cmap="viridis",
-                norm=Normalize(vmin=0, vmax=vmax),
+                norm=norm,
                 fill_alpha=0.9,
                 outline_width=0,
                 na_color="#00000000",
+                colorbar=False,
             )
-        plot.pl.show(coordinate_systems=coordinate_system, ax=axis)
-        axis.set_title(f"{cell_type}\ncolour maximum: p99 = {vmax:.3g}", fontsize=9)
+        plot.pl.show(coordinate_systems=coordinate_system, ax=axis, colorbar=False)
+        colorbar = fig.colorbar(
+            ScalarMappable(norm=norm, cmap="viridis"),
+            ax=axis,
+            fraction=0.046,
+            pad=0.03,
+        )
+        colorbar.set_label("Estimated cells", fontsize=8)
+        colorbar.ax.tick_params(labelsize=7)
+        axis.set_title(cell_type, fontsize=9)
         axis.set_axis_off()
 
     for axis in axes.ravel()[len(cell_types) :]:
         axis.set_visible(False)
 
-    fig.suptitle(f"Cell-type abundance ({statistic})", fontsize=14)
-    fig.subplots_adjust(top=0.95, wspace=0.15, hspace=0.25)
+    fig.suptitle(f"Cell-type abundance ({statistic})", fontsize=14, y=0.995)
+    fig.subplots_adjust(top=0.9, wspace=0.15, hspace=0.25)
     fig.savefig(output_path, bbox_inches="tight")
     plt.close(fig)
 
@@ -351,6 +381,7 @@ def plot_celltype_fraction(
     coordinate_system,
     cell_types,
     fraction_columns,
+    fractions,
     statistic,
     output_path,
 ):
@@ -365,35 +396,49 @@ def plot_celltype_fraction(
     )
 
     for axis, cell_type, column in zip(axes.ravel(), cell_types, fraction_columns):
+        values = fractions[cell_type].dropna().to_numpy()
+        vmax = float(np.percentile(values, 99)) if values.size else 1.0
+        vmax = max(vmax, np.finfo(float).eps)
+        norm = Normalize(vmin=0, vmax=vmax)
         if image_key:
-            plot = sdata.pl.render_images(image_key).pl.render_shapes(
+            plot = sdata.pl.render_images(image_key, cmap="gray").pl.render_shapes(
                 shape_key,
                 color=column,
                 cmap="viridis",
-                norm=Normalize(vmin=0, vmax=1),
+                norm=norm,
                 fill_alpha=0.75,
                 outline_width=0,
                 na_color="#00000000",
+                colorbar=False,
             )
         else:
             plot = sdata.pl.render_shapes(
                 shape_key,
                 color=column,
                 cmap="viridis",
-                norm=Normalize(vmin=0, vmax=1),
+                norm=norm,
                 fill_alpha=0.9,
                 outline_width=0,
                 na_color="#00000000",
+                colorbar=False,
             )
-        plot.pl.show(coordinate_systems=coordinate_system, ax=axis)
+        plot.pl.show(coordinate_systems=coordinate_system, ax=axis, colorbar=False)
+        colorbar = fig.colorbar(
+            ScalarMappable(norm=norm, cmap="viridis"),
+            ax=axis,
+            fraction=0.046,
+            pad=0.03,
+        )
+        colorbar.set_label("Cell-type fraction", fontsize=8)
+        colorbar.ax.tick_params(labelsize=7)
         axis.set_title(cell_type, fontsize=9)
         axis.set_axis_off()
 
     for axis in axes.ravel()[len(cell_types) :]:
         axis.set_visible(False)
 
-    fig.suptitle(f"Cell-type fraction ({statistic})", fontsize=14)
-    fig.subplots_adjust(top=0.95, wspace=0.15, hspace=0.2)
+    fig.suptitle(f"Cell-type fraction ({statistic})", fontsize=14, y=0.995)
+    fig.subplots_adjust(top=0.92, wspace=0.15, hspace=0.2)
     fig.savefig(output_path, bbox_inches="tight")
     plt.close(fig)
 
@@ -438,28 +483,38 @@ def plot_total_abundance(
     )
     axes[0].legend(frameon=False)
 
+    norm = Normalize(vmin=0, vmax=vmax)
     if image_key:
-        plot = sdata.pl.render_images(image_key).pl.render_shapes(
+        plot = sdata.pl.render_images(image_key, cmap="gray").pl.render_shapes(
             shape_key,
             color=total_column,
             cmap="viridis",
-            norm=Normalize(vmin=0, vmax=vmax),
+            norm=norm,
             fill_alpha=0.75,
             outline_width=0,
             na_color="#00000000",
+            colorbar=False,
         )
     else:
         plot = sdata.pl.render_shapes(
             shape_key,
             color=total_column,
             cmap="viridis",
-            norm=Normalize(vmin=0, vmax=vmax),
+            norm=norm,
             fill_alpha=0.9,
             outline_width=0,
             na_color="#00000000",
+            colorbar=False,
         )
-    plot.pl.show(coordinate_systems=coordinate_system, ax=axes[1])
-    axes[1].set_title(f"Spatial distribution\ncolour maximum: p99 = {vmax:.3g}")
+    plot.pl.show(coordinate_systems=coordinate_system, ax=axes[1], colorbar=False)
+    colorbar = fig.colorbar(
+        ScalarMappable(norm=norm, cmap="viridis"),
+        ax=axes[1],
+        fraction=0.046,
+        pad=0.03,
+    )
+    colorbar.set_label("Estimated cells per location")
+    axes[1].set_title("Spatial distribution")
     axes[1].set_axis_off()
 
     fig.suptitle(f"{sample_name}: total cell abundance ({statistic})", fontsize=14)
@@ -490,7 +545,7 @@ def plot_multiqc_deconvolution(
 
     fig, axes = plt.subplots(1, 2, figsize=(12, 5.5))
     if image_key:
-        total_plot = sdata.pl.render_images(image_key).pl.render_shapes(
+        total_plot = sdata.pl.render_images(image_key, cmap="gray").pl.render_shapes(
             shape_key,
             color=total_column,
             cmap="viridis",
@@ -512,11 +567,11 @@ def plot_multiqc_deconvolution(
             colorbar=False,
         )
     total_plot.pl.show(coordinate_systems=coordinate_system, ax=axes[0])
-    axes[0].set_title(f"Total abundance ({statistic})\ncolour maximum: p99 = {vmax:.3g}")
+    axes[0].set_title(f"Total abundance ({statistic})")
     axes[0].set_axis_off()
 
     if image_key:
-        mixture_plot = sdata.pl.render_images(image_key).pl.render_shapes(
+        mixture_plot = sdata.pl.render_images(image_key, cmap="gray").pl.render_shapes(
             shape_key,
             color=mixture_column,
             groups=mixture_palette,
@@ -836,6 +891,7 @@ def main():
         args.sample_name,
         cell_types,
         fraction_columns,
+        fractions,
         args.abundance_statistic,
         Path(f"{prefix}_celltype_fraction_{args.abundance_statistic}.pdf"),
     )
