@@ -177,9 +177,17 @@
                 "skip_segmentation": {
                     "type": "boolean",
                     "default": false,
-                    "description": "Skip microscopy image conversion, Cellpose segmentation, and segmentation visualization outputs.",
+                    "description": "Skip microscopy image conversion, cell segmentation, and segmentation visualization outputs.",
                     "help_text": "Use this option when microscopy images are present in the samplesheet but cell segmentation and the related MultiQC plots/statistics should not be generated.",
                     "fa_icon": "fas fa-ban"
+                },
+                "segmentation_method": {
+                    "type": "string",
+                    "default": "cellpose",
+                    "enum": ["cellpose", "skimage_watershed"],
+                    "description": "Algorithm used to segment nuclei in the microscopy image.",
+                    "help_text": "Cellpose is the default GPU-capable deep-learning backend. 'skimage_watershed' uses H&E colour deconvolution, thresholding and marker-controlled watershed and is suitable for fast CPU execution.",
+                    "fa_icon": "fas fa-project-diagram"
                 },
                 "zarr_downsample_factor": {
                     "type": "number",

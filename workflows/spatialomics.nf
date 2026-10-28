@@ -18,6 +18,7 @@ include { CZI_TO_SPACERANGER_TIFF     } from '../modules/local/czi_to_spacerange
 include { PREPARE_SEGMENTATION_IMAGE  } from '../modules/local/prepare_segmentation_image/main'
 include { EXTRACT_VISIUM_REGION       } from '../modules/local/extract_visium_region/main'
 include { CELLPOSE_SEGMENTATION       } from '../modules/local/cellpose_segmentation/main'
+include { SKIMAGE_WATERSHED_SEGMENTATION } from '../modules/local/skimage_watershed_segmentation/main'
 include { SPATIALDATA_AUGMENT_WITH_SEGMENTATION } from '../modules/local/spatialdata_augment_with_segmentation/main'
 include { ASSEMBLE_IMAGING_MULTIQC    } from '../modules/local/assemble_imaging_multiqc/main'
 include { BIN2CELL                    } from '../modules/local/bin2cell/main'
@@ -263,26 +264,43 @@ workflow SPATIALOMICS {
             .set { ch_crop_areas }
     }
 
-    //
-    // MODULE: Prepare grayscale memmappable OME-TIFF images for segmentation
-    //
+    // Select one segmentation backend while exposing the same mask and source-image
+    // channels to all downstream modules.
+    if ( params.segmentation_method == 'cellpose' ) {
 
-    PREPARE_SEGMENTATION_IMAGE(
+        // Prepare grayscale memmappable OME-TIFF images for Cellpose and downstream use.
+        PREPARE_SEGMENTATION_IMAGE(
+            ch_segmentation_images
+        )
+
+        PREPARE_SEGMENTATION_IMAGE.out.tiff
+            .join(EXTRACT_VISIUM_REGION.out.bounds)
+            .set { ch_cellpose_inputs }
+
+        CELLPOSE_SEGMENTATION (
+            ch_cellpose_inputs
+        )
+        ch_versions = ch_versions.mix(CELLPOSE_SEGMENTATION.out.versions.first())
+        ch_segmentation_masks = CELLPOSE_SEGMENTATION.out.mask
+        ch_segmentation_source_images = PREPARE_SEGMENTATION_IMAGE.out.tiff
+
+    } else if ( params.segmentation_method == 'skimage_watershed' ) {
+
+        // Segment the RGB source directly using H&E deconvolution and watershed.
+        // The module also emits the grayscale memmappable TIFF required downstream.
         ch_segmentation_images
-    )
+            .join(EXTRACT_VISIUM_REGION.out.bounds)
+            .set { ch_skimage_watershed_inputs }
 
-    //
-    // MODULE: Cell segmentation with Cellpose
-    //
+        SKIMAGE_WATERSHED_SEGMENTATION (
+            ch_skimage_watershed_inputs
+        )
+        ch_segmentation_masks = SKIMAGE_WATERSHED_SEGMENTATION.out.mask
+        ch_segmentation_source_images = SKIMAGE_WATERSHED_SEGMENTATION.out.tiff
 
-    PREPARE_SEGMENTATION_IMAGE.out.tiff
-        .join(EXTRACT_VISIUM_REGION.out.bounds)
-        .set { ch_cellpose_inputs }
-
-    CELLPOSE_SEGMENTATION (
-        ch_cellpose_inputs
-    )
-    ch_versions = ch_versions.mix(CELLPOSE_SEGMENTATION.out.versions.first())
+    } else {
+        error "Unsupported segmentation method '${params.segmentation_method}'. Use 'cellpose' or 'skimage_watershed'."
+    }
 
     //
     // MODULE: Augment SpatialData with segmentation and microscopy layers
@@ -290,8 +308,8 @@ workflow SPATIALOMICS {
 
     ch_zarr_before_segmentation
         .map { meta, zarr -> [["id": meta.id], zarr] }
-        .join(CELLPOSE_SEGMENTATION.out.mask)
-        .join(PREPARE_SEGMENTATION_IMAGE.out.tiff)
+        .join(ch_segmentation_masks)
+        .join(ch_segmentation_source_images)
         .join(ch_crop_areas)
         .set { ch_spatialdata_augment_with_segmentation_inputs }
 
@@ -354,8 +372,8 @@ workflow SPATIALOMICS {
     } else {
         ch_all_spaceranger_outs
             .map { meta, outs -> [["id": meta.id], outs] }
-            .join(CELLPOSE_SEGMENTATION.out.mask)
-            .join(PREPARE_SEGMENTATION_IMAGE.out.tiff)
+            .join(ch_segmentation_masks)
+            .join(ch_segmentation_source_images)
             .set { ch_bin2cell_inputs }
     }
 
