@@ -41,7 +41,7 @@ output:
             e.g. [ id:'NFG021_002' ]
       - "*_mask.tif":
           type: file
-          description: Full-image 2D instance-label mask with zeros outside the segmented Visium crop
+          description: Uncompressed, memmappable full-image 2D instance-label mask with zeros outside the segmented Visium crop
           pattern: "*_mask.tif"
   tiff:
     - - meta:

@@ -210,7 +210,9 @@ def main():
         args.output_mask,
         output,
         bigtiff=True,
-        compression="zlib",
+        compression=None,
+        photometric="minisblack",
+        contiguous=True,
         metadata={
             "axes": "YX",
             "SegmentationMethod": "scikit-image thresholding and watershed",
