@@ -33,7 +33,7 @@ def parse_args():
     parser.add_argument("--cell-percentage-cutoff", type=float, default=0.03)
     parser.add_argument("--nonzero-mean-cutoff", type=float, default=1.12)
     parser.add_argument("--max-epochs", type=int, default=100)
-    parser.add_argument("--batch-size", type=int, default=256)
+    parser.add_argument("--batch-size", type=int, default=2500)
     parser.add_argument("--posterior-num-samples", type=int, default=1000)
     parser.add_argument("--posterior-batch-size", type=int, default=2500)
     parser.add_argument("--seed", type=int, default=42)
@@ -121,7 +121,7 @@ def main():
         max_epochs=args.max_epochs,
         batch_size=args.batch_size,
         train_size=1,
-        lr=0.01,
+        lr=0.002,
         accelerator=accelerator,
     )
     adata = model.export_posterior(
