@@ -1,0 +1,10 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/environment-schema.json
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - numpy=2.0.0
+  - scipy=1.14.0
+  - scikit-image=0.24.0
+  - tifffile=2024.7.2

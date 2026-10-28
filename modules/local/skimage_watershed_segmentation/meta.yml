@@ -1,0 +1,80 @@
+name: skimage_watershed_segmentation
+description: Segment nuclei in a Visium microscopy region using thresholding and marker-controlled watershed
+keywords:
+  - scikit-image
+  - watershed
+  - nuclei segmentation
+  - microscopy
+  - spatial transcriptomics
+  - visium hd
+tools:
+  - scikit-image:
+      description: Image processing algorithms for Python.
+      homepage: https://scikit-image.org/
+      documentation: https://scikit-image.org/docs/stable/
+      licence: ["BSD-3-Clause"]
+  - tifffile:
+      description: Read and write TIFF, BigTIFF, OME-TIFF, and related image formats.
+      homepage: https://github.com/cgohlke/tifffile
+      documentation: https://github.com/cgohlke/tifffile
+      licence: ["BSD-3-Clause"]
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information.
+          e.g. [ id:'NFG021_002' ]
+    - input_image:
+        type: file
+        description: Grayscale or RGB microscopy image in TIFF-compatible format
+        pattern: "*.{btf,tif,tiff}"
+    - visium_bounds:
+        type: file
+        description: TSV containing full-resolution microscopy bounds as x0, y0, x1, y1
+        pattern: "*_visium_bounds.tsv"
+output:
+  mask:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information.
+            e.g. [ id:'NFG021_002' ]
+      - "*_mask.tif":
+          type: file
+          description: Full-image 2D instance-label mask with zeros outside the segmented Visium crop
+          pattern: "*_mask.tif"
+  tiff:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information.
+            e.g. [ id:'NFG021_002' ]
+      - "*_memmappable.ome.tif":
+          type: file
+          description: Grayscale, uncompressed, contiguous microscopy TIFF used by downstream modules
+          pattern: "*_memmappable.ome.tif"
+  versions_container:
+    - - ${task.process}:
+          type: string
+          description: The process that used the container
+      - container:
+          type: string
+          description: Runtime environment type
+      - quay.io/biocontainers/scikit-image:0.24.0:
+          type: string
+          description: Container used by the module
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: The process that used the container
+      - container:
+          type: string
+          description: Runtime environment type
+      - quay.io/biocontainers/scikit-image:0.24.0:
+          type: string
+          description: Container used by the module
+containers:
+  docker:
+    linux/amd64:
+      name: quay.io/biocontainers/scikit-image:0.24.0
