@@ -44,9 +44,9 @@ input:
   - zarr_downsample_factor:
       type: number
       description: Downsampling factor between TIFF image coordinates and the zarr coordinate system
-  - microscopy_downsample_factor:
+  - microscopy_preview_max_dimension:
       type: integer
-      description: Downsampling factor used to create the downsampled microscopy layer
+      description: Maximum width or height in pixels for the adaptively downsampled microscopy preview layer
   - chunk_size:
       type: integer
       description: Chunk size used for TIFF-backed dask arrays

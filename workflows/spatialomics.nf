@@ -316,7 +316,7 @@ workflow SPATIALOMICS {
     SPATIALDATA_AUGMENT_WITH_SEGMENTATION (
         ch_spatialdata_augment_with_segmentation_inputs,
         params.zarr_downsample_factor,
-        16,
+        params.microscopy_preview_max_dimension,
         2048
     )
 

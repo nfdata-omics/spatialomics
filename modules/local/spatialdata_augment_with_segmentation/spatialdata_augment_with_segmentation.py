@@ -356,7 +356,7 @@ def add_layers(
     segmentation_mask_tif,
     microscopy_tif,
     zarr_downsample_factor,
-    microscopy_downsample_factor,
+    microscopy_preview_max_dimension,
     chunk_size,
     overwrite,
 ):
@@ -367,8 +367,23 @@ def add_layers(
 
     segmentation_key = "segmentation_mask"
     microscopy_key = f"{sample_name}_microscopy"
+
+    mask = read_memmapped_2d_tiff(segmentation_mask_tif, "segmentation mask")
+    microscopy = read_memmapped_2d_tiff(microscopy_tif, "microscopy image")
+    segmentation_downsample_factor = infer_downsample_factor(microscopy.shape, mask.shape)
+    microscopy_downsample_factor = max(
+        1,
+        (max(microscopy.shape) + microscopy_preview_max_dimension - 1)
+        // microscopy_preview_max_dimension,
+    )
     microscopy_downsampled_key = (
         f"{sample_name}_microscopy_{microscopy_downsample_factor}x_downsampled"
+    )
+    print(
+        "Adaptive microscopy preview: "
+        f"source shape={microscopy.shape}, "
+        f"maximum dimension={microscopy_preview_max_dimension}, "
+        f"downsample factor={microscopy_downsample_factor}"
     )
 
     layer_names = [
@@ -379,10 +394,6 @@ def add_layers(
     check_layer_names(sdata, layer_names, overwrite)
     if overwrite:
         remove_existing_layers(sdata, layer_names)
-
-    mask = read_memmapped_2d_tiff(segmentation_mask_tif, "segmentation mask")
-    microscopy = read_memmapped_2d_tiff(microscopy_tif, "microscopy image")
-    segmentation_downsample_factor = infer_downsample_factor(microscopy.shape, mask.shape)
 
     chunks_2d = (chunk_size, chunk_size)
     chunks_3d = (1, chunk_size, chunk_size)
@@ -699,7 +710,10 @@ def run(args):
     results_dir = Path(args.results_dir)
 
     validate_positive_number(args.zarr_downsample_factor, "--zarr-downsample-factor")
-    validate_positive_number(args.microscopy_downsample_factor, "--microscopy-downsample-factor")
+    validate_positive_number(
+        args.microscopy_preview_max_dimension,
+        "--microscopy-preview-max-dimension",
+    )
     validate_positive_number(args.chunk_size, "--chunk-size")
     validate_paths(input_zarr, output_zarr)
 
@@ -721,7 +735,7 @@ def run(args):
         segmentation_mask_tif=segmentation_mask_tif,
         microscopy_tif=microscopy_tif,
         zarr_downsample_factor=args.zarr_downsample_factor,
-        microscopy_downsample_factor=args.microscopy_downsample_factor,
+        microscopy_preview_max_dimension=args.microscopy_preview_max_dimension,
         chunk_size=args.chunk_size,
         overwrite=args.overwrite,
     )
@@ -797,9 +811,9 @@ def build_parser():
         help="Factor by which the zarr coordinate space is downsampled relative to TIFFs",
     )
     parser.add_argument(
-        "--microscopy-downsample-factor",
+        "--microscopy-preview-max-dimension",
         type=int,
-        help="Factor used to create the downsampled microscopy image layer",
+        help="Maximum width or height in pixels for the adaptive microscopy preview layer",
     )
     parser.add_argument(
         "--crop-areas",
@@ -855,7 +869,7 @@ def main():
         "segmentation_mask_tif",
         "microscopy_tif",
         "zarr_downsample_factor",
-        "microscopy_downsample_factor",
+        "microscopy_preview_max_dimension",
     ]
     missing = [f"--{name.replace('_', '-')}" for name in required if getattr(args, name) is None]
     if missing:

@@ -8,7 +8,7 @@ process SPATIALDATA_AUGMENT_WITH_SEGMENTATION {
     input:
     tuple val(meta), path(zarr_folder), path(segmentation_mask), path(microscopy_image), val(crop_areas)
     val zarr_downsample_factor
-    val microscopy_downsample_factor
+    val microscopy_preview_max_dimension
     val chunk_size
 
     output:
@@ -47,7 +47,7 @@ END_SCRIPT
         --segmentation-mask-tif "${segmentation_mask}" \
         --microscopy-tif "${microscopy_image}" \
         --zarr-downsample-factor "${zarr_downsample_factor}" \
-        --microscopy-downsample-factor "${microscopy_downsample_factor}" \
+        --microscopy-preview-max-dimension "${microscopy_preview_max_dimension}" \
         --chunk-size "${chunk_size}" \
         ${crop_areas_arg} \
         ${overwrite_arg} \

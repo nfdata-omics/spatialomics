@@ -221,6 +221,14 @@
                     "help_text": "A value of 4 produces an image approximately one quarter as wide and one quarter as high. Use 1 to disable downsampling. Coordinates in the accompanying TSV remain relative to the full-resolution microscopy image.",
                     "fa_icon": "fas fa-compress"
                 },
+                "microscopy_preview_max_dimension": {
+                    "type": "integer",
+                    "default": 2000,
+                    "minimum": 1,
+                    "description": "Maximum width or height of the microscopy preview used in registration and overview plots.",
+                    "help_text": "The pipeline automatically selects an integer downsampling factor that keeps the longest side at or below this number of pixels. The full-resolution microscopy layer is not affected.",
+                    "fa_icon": "fas fa-compress-arrows-alt"
+                },
                 "save_capture_area_image": {
                     "type": "boolean",
                     "default": true,
