@@ -20,7 +20,7 @@ include { EXTRACT_VISIUM_REGION       } from '../modules/local/extract_visium_re
 include { CELLPOSE_SEGMENTATION       } from '../modules/local/cellpose_segmentation/main'
 include { SKIMAGE_WATERSHED_SEGMENTATION } from '../modules/local/skimage_watershed_segmentation/main'
 include { SPATIALDATA_AUGMENT_WITH_SEGMENTATION } from '../modules/local/spatialdata_augment_with_segmentation/main'
-include { ASSEMBLE_IMAGING_MULTIQC    } from '../modules/local/assemble_imaging_multiqc/main'
+include { ASSEMBLE_SPATIAL_MULTIQC    } from '../modules/local/assemble_spatial_multiqc/main'
 include { BIN2CELL                    } from '../modules/local/bin2cell/main'
 
 include { PREPARE_REF            } from '../subworkflows/local/prepare_ref'
@@ -57,6 +57,7 @@ workflow SPATIALOMICS {
 
     def ch_versions = channel.empty()
     def ch_multiqc_files = channel.empty()
+    def ch_deconvolution_multiqc_plots = channel.empty()
 
     //
     // SUBWORKFLOW: Prepare reference genome
@@ -215,14 +216,21 @@ workflow SPATIALOMICS {
             ch_cell2location_signatures
         )
 
-        // Generate complete per-sample result plots and the files that will be
-        // connected to MultiQC in a subsequent implementation step.
+        // Generate complete per-sample result plots and MultiQC inputs.
         CELL2LOCATION_PLOTS (
             CELL2LOCATION_DECONVOLUTION.out.zarr,
             params.bin_analysis_bin_size,
             params.cell2location_abundance_statistic,
             params.cell2location_uncertainty_min_abundance,
             params.cell2location_multiqc_cell_types ?: ''
+        )
+
+        ch_deconvolution_multiqc_plots = CELL2LOCATION_PLOTS.out.mqc_plot
+        ch_multiqc_files = ch_multiqc_files.mix(
+            CELL2LOCATION_PLOTS.out.composition_mqc.map { _meta, path -> path }
+        )
+        ch_multiqc_files = ch_multiqc_files.mix(
+            CELL2LOCATION_PLOTS.out.summary_mqc.map { _meta, path -> path }
         )
 
         ch_zarr_before_segmentation = CELL2LOCATION_DECONVOLUTION.out.zarr
@@ -329,38 +337,29 @@ workflow SPATIALOMICS {
                 .map { meta, zarr -> [meta.id, zarr] },
             remainder: true
         )
-        .map { id, meta, input_zarr, augmented_zarr = null ->
+        .map { _id, meta, input_zarr, augmented_zarr = null ->
             [meta, augmented_zarr ?: input_zarr]
         }
         .set { ch_final_zarr }
 
     //
-    // MODULE: Assemble imaging data to single-sample htmls for the MultiQC report
+    // MODULE: Assemble the available per-sample spatial plots for MultiQC
     //
 
-    if ( params.skip_segmentation ) {
+    SPATIAL_QUALITY_CONTROL.out.mqc_plot
+        .mix(SPATIALDATA_AUGMENT_WITH_SEGMENTATION.out.registration_plot)
+        .mix(SPATIALDATA_AUGMENT_WITH_SEGMENTATION.out.crop_areas_plot)
+        .mix(SPATIALDATA_AUGMENT_WITH_SEGMENTATION.out.segmentation_crop_panels_plot)
+        .mix(ch_deconvolution_multiqc_plots)
+        .map { meta, plot -> [meta.id, meta, plot] }
+        .groupTuple(by: 0)
+        .map { _id, metadata, plots -> [metadata.first(), plots] }
+        .set { ch_spatial_multiqc_inputs }
 
-        SPATIAL_QUALITY_CONTROL.out.mqc_plot
-            .map { meta, plot -> [meta, [plot]]}
-            .set { ch_imaging_multiqc_inputs }
-
-    } else {
-
-        SPATIAL_QUALITY_CONTROL.out.mqc_plot
-            .map { meta, png -> [["id": meta.id], png] }
-            .join(SPATIALDATA_AUGMENT_WITH_SEGMENTATION.out.registration_plot)
-            .join(SPATIALDATA_AUGMENT_WITH_SEGMENTATION.out.crop_areas_plot)
-            .join(SPATIALDATA_AUGMENT_WITH_SEGMENTATION.out.segmentation_crop_panels_plot)
-            .map { meta, mqc_plot, registration_plot, crop_areas_plot, segmentation_crop_panels_plot
-                     -> [meta, [mqc_plot, registration_plot, crop_areas_plot, segmentation_crop_panels_plot]]}
-            .set { ch_imaging_multiqc_inputs }
-
-    }
-
-    ASSEMBLE_IMAGING_MULTIQC (
-        ch_imaging_multiqc_inputs
+    ASSEMBLE_SPATIAL_MULTIQC (
+        ch_spatial_multiqc_inputs
     )
-    ch_multiqc_files = ch_multiqc_files.mix(ASSEMBLE_IMAGING_MULTIQC.out.html.collect{ _meta, path -> path })
+    ch_multiqc_files = ch_multiqc_files.mix(ASSEMBLE_SPATIAL_MULTIQC.out.html.collect{ _meta, path -> path })
     ch_multiqc_files = ch_multiqc_files.mix(SPATIALDATA_AUGMENT_WITH_SEGMENTATION.out.segmentation_stats.collect{ _meta, paths -> paths })
 
     //

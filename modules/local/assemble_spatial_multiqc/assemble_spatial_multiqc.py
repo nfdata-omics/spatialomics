@@ -30,6 +30,11 @@ IMAGE_SECTIONS = [
         "Segmentation panels",
         "Microscopy and segmentation views for the selected crop areas.",
     ),
+    (
+        "deconvolution_mqc",
+        "Deconvolution",
+        "Total estimated cell abundance and condensed cell-type composition.",
+    ),
 ]
 
 
@@ -64,17 +69,16 @@ def render_html(sample_name, images):
     sample_id = safe_id(sample_name)
     sample_name_yaml = json.dumps(sample_name)
     header = f"""<!--
-parent_id: imaging_and_segmentation
-parent_name: "Imaging and segmentation"
+parent_id: spatial_overview
+parent_name: "Spatial overview"
 parent_description: |
-  Per-sample microscopy, registration, spatial QC, crop-area, and segmentation review outputs.
-id: "imaging_and_segmentation_{sample_id}"
+  Per-sample spatial QC, imaging, segmentation, and deconvolution review outputs.
+id: "spatial_overview_{sample_id}"
 section_name: {sample_name_yaml}
 plot_type: "html"
 -->
 """
 
-    sample_label = html.escape(sample_name)
     blocks = [
         '<div class="spatialomics-sample-report" '
         'style="display:flex;flex-direction:column;gap:1.25rem;">'

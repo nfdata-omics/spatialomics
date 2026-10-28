@@ -1,10 +1,11 @@
-name: assemble_imaging_multiqc
-description: Assemble per-sample imaging and segmentation PNGs into MultiQC HTML custom content
+name: assemble_spatial_multiqc
+description: Assemble available per-sample spatial-analysis PNGs into MultiQC HTML custom content
 keywords:
   - multiqc
   - spatial transcriptomics
   - microscopy
   - segmentation
+  - deconvolution
 tools:
   - python:
       description: Python programming language
@@ -19,7 +20,7 @@ input:
           e.g. [ id:'NFG021_002' ]
     - images:
         type: file
-        description: Per-sample PNG images to embed in the MultiQC HTML section
+        description: Available per-sample spatial QC, imaging, segmentation, and deconvolution PNG images to embed in MultiQC
         pattern: "*_mqc.png"
 output:
   html:
@@ -28,10 +29,10 @@ output:
           description: |
             Groovy Map containing sample information.
             e.g. [ id:'NFG021_002' ]
-      - "*_imaging_and_segmentation_mqc.html":
+      - "*_spatial_mqc.html":
           type: file
-          description: MultiQC custom-content HTML containing per-sample imaging and segmentation figures
-          pattern: "*_imaging_and_segmentation_mqc.html"
+          description: MultiQC custom-content HTML containing the available per-sample spatial-analysis figures
+          pattern: "*_spatial_mqc.html"
   versions_container:
     - - ${task.process}:
           type: string

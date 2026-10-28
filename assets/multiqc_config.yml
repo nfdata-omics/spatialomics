@@ -22,6 +22,10 @@ report_section_order:
     order: 30
   qc_metrics:
     after: qc_distributions
+  cell2location_celltype_composition:
+    order: 2600
+  cell2location_deconvolution_summary:
+    after: cell2location_celltype_composition
   segmentation:
     order: 2500
   segmentation_stats:
@@ -30,7 +34,7 @@ report_section_order:
     order: 2400
   bin2cell_summary:
     order: 30
-  imaging_and_segmentation:
+  spatial_overview:
     order: 2000
   "nfdata-omics-spatialomics-methods-description":
     order: -1000
@@ -108,8 +112,8 @@ sp:
     fn: "qc_metrics.csv"
   qc_distributions:
     fn: "qc_distributions.html"
-  imaging_and_segmentation_sample:
-    fn: "*_imaging_and_segmentation_mqc.html"
+  spatial_overview_sample:
+    fn: "*_spatial_mqc.html"
   segmentation_stats:
     fn: "*_segmentation_stats.csv"
   bin2cell_summary:
