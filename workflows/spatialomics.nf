@@ -25,7 +25,6 @@ include { SPATIALDATA_AUGMENT_WITH_SEGMENTATION } from '../modules/local/spatial
 include { ASSEMBLE_SPATIAL_MULTIQC    } from '../modules/local/assemble_spatial_multiqc/main'
 include { BIN2CELL                    } from '../modules/local/bin2cell/main'
 
-include { PREPARE_REF            } from '../subworkflows/local/prepare_ref'
 include { PREPARE_FASTQ          } from '../subworkflows/local/prepare_fastq'
 
 include { paramsSummaryMap       } from 'plugin/nf-schema'
@@ -45,10 +44,8 @@ workflow SPATIALOMICS {
     ch_samplesheet        // channel: samplesheet read in from --input
     ch_spaceranger_outs   // channel: spaceranger output paths read in from --input
     ch_roi_annotations    // channel: optional per-sample ROI GeoJSON files
-    ch_fasta              // value channel: path(fasta)
-    ch_gtf                // value channel: path(gtf)
-    ch_gff                // value channel: path(gff)
-    ch_spaceranger_index  // value channel: path(spaceranger_index)
+    ch_spaceranger_index  // value channel: prepared Space Ranger index
+    ch_reference_versions // channel: software versions from reference preparation
     ch_probeset           // value channel: path(probeset) (optional)
     ch_single_cell_reference // value channel: optional single-cell reference AnnData
     multiqc_config
@@ -58,7 +55,7 @@ workflow SPATIALOMICS {
 
     main:
 
-    def ch_versions = channel.empty()
+    def ch_versions = ch_reference_versions
     def ch_multiqc_files = channel.empty()
     def ch_deconvolution_multiqc_plots = channel.empty()
 
@@ -81,24 +78,6 @@ workflow SPATIALOMICS {
         .set { ch_prepared_spaceranger_outs }
 
     ch_versions = ch_versions.mix(UNTAR_SPACERANGER_OUTS.out.versions)
-
-    //
-    // SUBWORKFLOW: Prepare reference genome
-    //
-    ch_prepared_spaceranger_index = channel.empty()
-    def reference_requested = params.spaceranger_index || params.fasta || params.gtf || params.gff
-
-    if (reference_requested) {
-        PREPARE_REF (
-            ch_fasta,
-            ch_gtf,
-            ch_gff,
-            ch_spaceranger_index,
-            params.reference_name
-        )
-        ch_prepared_spaceranger_index = PREPARE_REF.out.spaceranger_index
-        ch_versions = ch_versions.mix(PREPARE_REF.out.versions)
-    }
 
     //
     // SUBWORKFLOW: Prepare FastQ files
@@ -150,7 +129,7 @@ workflow SPATIALOMICS {
     SPACERANGER_COUNT(
         ch_reads_with_meta.reads,
         ch_reads_with_meta.slide_and_img,
-        ch_prepared_spaceranger_index,
+        ch_spaceranger_index,
         ch_probeset
     )
     ch_versions = ch_versions.mix(SPACERANGER_COUNT.out.versions)

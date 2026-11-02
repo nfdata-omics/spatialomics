@@ -14,19 +14,10 @@
 */
 
 include { SPATIALOMICS  } from './workflows/spatialomics'
+include { PREPARE_REF   } from './subworkflows/local/prepare_ref'
 include { PIPELINE_INITIALISATION } from './subworkflows/local/utils_nfcore_spatialomics_pipeline'
 include { PIPELINE_COMPLETION     } from './subworkflows/local/utils_nfcore_spatialomics_pipeline'
 include { getGenomeAttribute      } from './subworkflows/local/utils_nfcore_spatialomics_pipeline'
-
-/*
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    GENOME PARAMETER VALUES
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-*/
-
-params.fasta             = getGenomeAttribute('fasta')
-params.gtf               = getGenomeAttribute('gtf')
-params.spaceranger_index = getGenomeAttribute('spaceranger_index')
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -46,11 +37,35 @@ workflow NFDATAOMICS_SPATIALOMICS {
 
     main:
 
-    // Define channels for reference files
-    ch_fasta              = params.fasta             ? channel.value(file(params.fasta, checkIfExists: true))             : channel.empty()
-    ch_gtf                = params.gtf               ? channel.value(file(params.gtf, checkIfExists: true))               : channel.empty()
-    ch_gff                = params.gff               ? channel.value(file(params.gff, checkIfExists: true))               : channel.empty()
-    ch_spaceranger_index  = params.spaceranger_index ? file(params.spaceranger_index, checkIfExists: true) : channel.empty()
+    // Explicit parameters take precedence over entries in the selected genome dictionary.
+    def reference_spec = [
+        fasta: params.fasta ?: getGenomeAttribute('fasta'),
+        gtf: params.gtf ?: getGenomeAttribute('gtf'),
+        gff: params.gff ?: getGenomeAttribute('gff'),
+        spaceranger_index: params.spaceranger_index ?: getGenomeAttribute('spaceranger_index'),
+        reference_name: params.reference_name
+    ]
+
+    // Validate references only for samples that require Space Ranger execution.
+    ch_validated_samplesheet = samplesheet.map { meta, fastqs ->
+        assert reference_spec.spaceranger_index || (reference_spec.fasta && (reference_spec.gtf || reference_spec.gff)):
+            "FASTQ input requires --spaceranger_index or --fasta with --gtf/--gff"
+
+        assert reference_spec.spaceranger_index || reference_spec.reference_name:
+            "Building a Space Ranger reference requires --reference_name"
+
+        return [ meta, fastqs ]
+    }
+
+    // Gate reference preparation on the presence of a validated FASTQ sample.
+    ch_reference_trigger = ch_validated_samplesheet.map { true }.unique()
+
+    // Resolve and prepare the Space Ranger reference required by FASTQ samples.
+    PREPARE_REF(
+        ch_reference_trigger,
+        reference_spec
+    )
+
     ch_probeset           = params.probeset          ? channel.value(file(params.probeset, checkIfExists: true))          : channel.value([])
 
     // Define channel for the optional single-cell reference dataset
@@ -60,13 +75,11 @@ workflow NFDATAOMICS_SPATIALOMICS {
     // WORKFLOW: Run pipeline
     //
     SPATIALOMICS (
-        samplesheet,
+        ch_validated_samplesheet,
         spaceranger_outs,
         roi_annotations,
-        ch_fasta,
-        ch_gtf,
-        ch_gff,
-        ch_spaceranger_index,
+        PREPARE_REF.out.spaceranger_index,
+        PREPARE_REF.out.versions,
         ch_probeset,
         ch_single_cell_reference,
         params.multiqc_config,

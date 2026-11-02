@@ -301,6 +301,17 @@
                     "errorMessage": "The GTF file must have a .gtf or .gtf.gz extension, must not contain spaces, and must exist.",
                     "fa_icon": "fas fa-code-branch"
                 },
+                "gff": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "mimetype": "text/plain",
+                    "pattern": "^\\S+\\.gff3?(\\.gz)?$",
+                    "description": "Path to GFF or GFF3 annotation file.",
+                    "help_text": "Alternative to --gtf when building a Space Ranger reference from FASTA. The annotation is converted to GTF before reference construction.",
+                    "errorMessage": "The GFF file must have a .gff, .gff3, .gff.gz or .gff3.gz extension, must not contain spaces, and must exist.",
+                    "fa_icon": "fas fa-code-branch"
+                },
                 "spaceranger_index": {
                     "type": "string",
                     "format": "path",
@@ -312,7 +323,7 @@
                 "reference_name": {
                     "type": "string",
                     "fa_icon": "fas fa-book",
-                    "description": "Genome assembly label that will be used to name a new index built from fasta and gft files with spaceranger mkref."
+                    "description": "Genome assembly label that will be used to name a new index built from FASTA and GTF/GFF files with Space Ranger mkref."
                 },
                 "probeset": {
                     "type": "string",
