@@ -28,9 +28,17 @@
                 "errorMessage": "FastQ file for reads 2 must be provided with reads 1, cannot contain spaces and must have extension '.fq.gz' or '.fastq.gz'"
             },
             "image": {
-                "type": "string",
-                "format": "file-path",
-                "exists": true,
+                "anyOf": [
+                    {
+                        "type": "string",
+                        "pattern": "^https?://"
+                    },
+                    {
+                        "type": "string",
+                        "format": "file-path",
+                        "exists": true
+                    }
+                ],
                 "meta": ["image"]
             },
             "cytaimage": {
@@ -75,16 +83,32 @@
                 "description": "Optional crop areas as x0:y0:x1:y1[;x0:y0:x1:y1] in sample coordinates"
             },
             "spaceranger": {
-                "type": "string",
-                "format": "path",
-                "exists": true,
+                "anyOf": [
+                    {
+                        "type": "string",
+                        "pattern": "^https?://"
+                    },
+                    {
+                        "type": "string",
+                        "format": "path",
+                        "exists": true
+                    }
+                ],
                 "description": "Path or URL to a pre-computed Space Ranger outs directory or .tar.gz archive",
                 "errorMessage": "Space Ranger output directory or .tar.gz archive must exist"
             },
             "roi_annotations": {
-                "type": "string",
-                "format": "file-path",
-                "exists": true,
+                "anyOf": [
+                    {
+                        "type": "string",
+                        "pattern": "^https?://"
+                    },
+                    {
+                        "type": "string",
+                        "format": "file-path",
+                        "exists": true
+                    }
+                ],
                 "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.geojson$",
                 "description": "Optional ROI annotations in GeoJSON format, expressed in capture-area crop coordinates"
             }

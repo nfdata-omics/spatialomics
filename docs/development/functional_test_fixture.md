@@ -11,6 +11,10 @@ development and continuous integration.
 
 - `assets/samplesheet_test_mock.csv` keeps the samplesheet in the repository
   and references the version-specific Zenodo record for all data files.
+- HTTP(S) inputs for the microscopy image, Space Ranger output, and ROI
+  annotations bypass the local `exists` check in the samplesheet schema;
+  availability is checked when Nextflow stages the remote files. Local inputs
+  retain schema-level existence validation.
 - The Space Ranger input is supplied as `spaceranger_outs.tar.gz` and extracted
   by the pipeline before downstream processing.
 - The test uses `skimage_watershed` segmentation to avoid a GPU dependency.
