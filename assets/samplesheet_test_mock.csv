@@ -1,0 +1,2 @@
+sample,fastq_1,fastq_2,image,cytaimage,slide,area,darkimage,colorizedimage,manual_alignment,slidefile,crop_areas,spaceranger,roi_annotations
+Visium_HD_Human_Colon_Cancer_P5_mock,,,https://zenodo.org/records/23888419/files/Visium_HD_Human_Colon_Cancer_P5_mock_tissue_image.tif,,,,,,,,,https://zenodo.org/records/23888419/files/spaceranger_outs.tar.gz,https://zenodo.org/records/23888419/files/Visium_HD_Human_Colon_Cancer_P5_mock_visium_capture_area.geojson
