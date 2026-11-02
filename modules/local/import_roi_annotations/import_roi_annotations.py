@@ -7,6 +7,7 @@ import json
 import shutil
 from pathlib import Path
 
+import anndata
 import geopandas as gpd
 import matplotlib
 
@@ -14,8 +15,13 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.colors import is_color_like
 from matplotlib.lines import Line2D
+import matplotlib.patheffects as path_effects
+from matplotlib.patches import PathPatch
+from matplotlib.path import Path as MatplotlibPath
+import numpy as np
 from shapely import affinity
 from shapely.geometry import MultiPolygon, Polygon, shape
+from shapely.geometry.polygon import orient
 import spatialdata as sd
 from spatialdata.models import ShapesModel
 from spatialdata.transformations import Identity
@@ -115,13 +121,30 @@ def polygon_parts(geometry):
     return geometry.geoms if isinstance(geometry, MultiPolygon) else [geometry]
 
 
+def polygon_patch(polygon, color):
+    polygon = orient(polygon, sign=1.0)
+    rings = [polygon.exterior, *polygon.interiors]
+    path = MatplotlibPath.make_compound_path(
+        *[MatplotlibPath(np.asarray(ring.coords), closed=True) for ring in rings]
+    )
+    return PathPatch(
+        path,
+        facecolor=color,
+        edgecolor=color,
+        alpha=0.25,
+        linewidth=1.5,
+    )
+
+
 def save_plot(annotations, image_path, output_path):
     image = tifffile.imread(image_path)
+    if image.ndim == 3:
+        image = np.dot(image[..., :3], [0.2126, 0.7152, 0.0722])
     fig, axis = plt.subplots(figsize=(10, 10))
-    axis.imshow(image, cmap="gray" if image.ndim == 2 else None)
+    axis.imshow(image, cmap="gray")
 
     legend = {}
-    for _, row in annotations.iterrows():
+    for roi_number, (_, row) in enumerate(annotations.iterrows(), start=1):
         label = row.get("classification_name")
         if not isinstance(label, str) or not label:
             label = "Unclassified"
@@ -130,11 +153,25 @@ def save_plot(annotations, image_path, output_path):
             color = "#ffcc00"
         legend[label] = color
         for polygon in polygon_parts(row.geometry):
-            x, y = polygon.exterior.xy
-            axis.fill(x, y, facecolor=color, edgecolor=color, alpha=0.25, linewidth=1.5)
-            for interior in polygon.interiors:
-                x, y = interior.xy
-                axis.fill(x, y, facecolor="none", edgecolor=color, linewidth=1.0)
+            axis.add_patch(polygon_patch(polygon, color))
+
+        label_geometry = (
+            max(row.geometry.geoms, key=lambda geometry: geometry.area)
+            if isinstance(row.geometry, MultiPolygon)
+            else row.geometry
+        )
+        label_point = label_geometry.representative_point()
+        axis.text(
+            label_point.x,
+            label_point.y,
+            str(roi_number),
+            color="white",
+            fontsize=8,
+            fontweight="bold",
+            ha="center",
+            va="center",
+            path_effects=[path_effects.withStroke(linewidth=2, foreground="black")],
+        )
 
     handles = [
         Line2D([0], [0], color=color, linewidth=3, label=label)
@@ -144,7 +181,7 @@ def save_plot(annotations, image_path, output_path):
         axis.legend(handles=handles, loc="upper right", framealpha=0.9)
     axis.set_xlim(-0.5, image.shape[1] - 0.5)
     axis.set_ylim(image.shape[0] - 0.5, -0.5)
-    axis.set_title("ROI annotations")
+    axis.set_title(f"ROI annotations (n={len(annotations)})")
     axis.set_axis_off()
     fig.tight_layout()
     fig.savefig(output_path, dpi=150, bbox_inches="tight")
@@ -181,6 +218,7 @@ def run(args):
             shutil.rmtree(args.output_zarr)
         else:
             args.output_zarr.unlink()
+    anndata.settings.allow_write_nullable_strings = True
     sdata.write(args.output_zarr)
 
 
