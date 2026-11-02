@@ -31,6 +31,11 @@ IMAGE_SECTIONS = [
         "Microscopy and segmentation views for the selected crop areas.",
     ),
     (
+        "roi_annotations_mqc",
+        "ROI annotations",
+        "Imported ROI annotations overlaid on the capture-area microscopy image.",
+    ),
+    (
         "deconvolution_mqc",
         "Deconvolution",
         "Total estimated cell abundance and condensed cell-type composition.",

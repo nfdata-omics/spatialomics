@@ -100,12 +100,13 @@ def extract_visium_region(
         handle.write(
             "x0\ty0\tx1\ty1\tcrop_x0\tcrop_y0\tcrop_x1\tcrop_y1\t"
             "source_width\tsource_height\tpadding\tdownsample_factor\t"
-            "output_width\toutput_height\tscale_x\tscale_y\n"
+            "output_width\toutput_height\tscale_x\tscale_y\tzarr_downsample_factor\n"
         )
         handle.write(
             f"{x0}\t{y0}\t{x1}\t{y1}\t{crop_x0}\t{crop_y0}\t{crop_x1}\t{crop_y1}\t"
             f"{width}\t{height}\t{crop_padding}\t{crop_downsample_factor}\t"
-            f"{output_width}\t{output_height}\t{scale_x:.12g}\t{scale_y:.12g}\n"
+            f"{output_width}\t{output_height}\t{scale_x:.12g}\t{scale_y:.12g}\t"
+            f"{zarr_downsample_factor:.12g}\n"
         )
 
     store = tifffile.imread(microscopy_tif, series=0, level=0, aszarr=True)

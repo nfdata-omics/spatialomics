@@ -17,6 +17,7 @@ include { CELL2LOCATION_PLOTS         } from '../modules/local/cell2location/plo
 include { CZI_TO_SPACERANGER_TIFF     } from '../modules/local/czi_to_spaceranger_tiff/main'
 include { PREPARE_SEGMENTATION_IMAGE  } from '../modules/local/prepare_segmentation_image/main'
 include { EXTRACT_VISIUM_REGION       } from '../modules/local/extract_visium_region/main'
+include { IMPORT_ROI_ANNOTATIONS      } from '../modules/local/import_roi_annotations/main'
 include { CELLPOSE_SEGMENTATION       } from '../modules/local/cellpose_segmentation/main'
 include { SKIMAGE_WATERSHED_SEGMENTATION } from '../modules/local/skimage_watershed_segmentation/main'
 include { SPATIALDATA_AUGMENT_WITH_SEGMENTATION } from '../modules/local/spatialdata_augment_with_segmentation/main'
@@ -42,6 +43,7 @@ workflow SPATIALOMICS {
     take:
     ch_samplesheet        // channel: samplesheet read in from --input
     ch_spaceranger_outs   // channel: spaceranger output paths read in from --input
+    ch_roi_annotations    // channel: optional per-sample ROI GeoJSON files
     ch_fasta              // value channel: path(fasta)
     ch_gtf                // value channel: path(gtf)
     ch_gff                // value channel: path(gff)
@@ -342,6 +344,32 @@ workflow SPATIALOMICS {
         }
         .set { ch_final_zarr }
 
+    // Import optional ROI annotations without adding their paths to the shared sample metadata.
+    ch_final_zarr
+        .map { meta, zarr -> [meta.id, meta, zarr] }
+        .join(ch_roi_annotations.map { meta, annotations -> [meta.id, annotations] })
+        .join(EXTRACT_VISIUM_REGION.out.bounds.map { meta, bounds -> [meta.id, bounds] })
+        .join(EXTRACT_VISIUM_REGION.out.crop.map { meta, crop -> [meta.id, crop] })
+        .map { _id, meta, zarr, annotations, bounds, crop ->
+            [meta, zarr, annotations, bounds, crop]
+        }
+        .set { ch_import_roi_annotations_inputs }
+
+    IMPORT_ROI_ANNOTATIONS (
+        ch_import_roi_annotations_inputs
+    )
+
+    ch_final_zarr
+        .map { meta, zarr -> [meta.id, meta, zarr] }
+        .join(
+            IMPORT_ROI_ANNOTATIONS.out.zarr.map { meta, zarr -> [meta.id, zarr] },
+            remainder: true
+        )
+        .map { _id, meta, input_zarr, annotated_zarr = null ->
+            [meta, annotated_zarr ?: input_zarr]
+        }
+        .set { ch_final_zarr_with_roi_annotations }
+
     //
     // MODULE: Assemble the available per-sample spatial plots for MultiQC
     //
@@ -350,6 +378,7 @@ workflow SPATIALOMICS {
         .mix(SPATIALDATA_AUGMENT_WITH_SEGMENTATION.out.registration_plot)
         .mix(SPATIALDATA_AUGMENT_WITH_SEGMENTATION.out.crop_areas_plot)
         .mix(SPATIALDATA_AUGMENT_WITH_SEGMENTATION.out.segmentation_crop_panels_plot)
+        .mix(IMPORT_ROI_ANNOTATIONS.out.roi_plot)
         .mix(ch_deconvolution_multiqc_plots)
         .map { meta, plot -> [meta.id, meta, plot] }
         .groupTuple(by: 0)
@@ -442,7 +471,7 @@ workflow SPATIALOMICS {
     )
     emit:
     multiqc_report    = MULTIQC.out.report.map { _meta, report -> [report] }.toList() // channel: /path/to/multiqc_report.html
-    final_spatialdata = ch_final_zarr                                                // channel: [ val(meta), path(zarr) ]
+    final_spatialdata = ch_final_zarr_with_roi_annotations                           // channel: [ val(meta), path(zarr) ]
     versions          = ch_versions                                                   // channel: [ path(versions.yml) ]
 }
 

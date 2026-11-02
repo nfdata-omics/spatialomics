@@ -97,7 +97,7 @@ workflow PIPELINE_INITIALISATION {
     // be processed from FASTQ. Pre-computed Space Ranger outputs can proceed
     // directly to the downstream SpatialData workflow without a reference.
     def has_fastq_input = samplesheet_list.any {
-        _meta, fastq_1, _fastq_2, _spaceranger -> fastq_1
+        _meta, fastq_1, _fastq_2, _spaceranger, _roi_annotations -> fastq_1
     }
 
     if (has_fastq_input) {
@@ -110,9 +110,9 @@ workflow PIPELINE_INITIALISATION {
 
     channel
         .fromList(samplesheet_list)
-        .filter { _meta, fastq_1, _fastq_2, _spaceranger -> fastq_1 }
+        .filter { _meta, fastq_1, _fastq_2, _spaceranger, _roi_annotations -> fastq_1 }
         .map {
-            meta, fastq_1, fastq_2, _spaceranger ->
+            meta, fastq_1, fastq_2, _spaceranger, _roi_annotations ->
                 return [ meta.id, meta + [ single_end:false ], [ fastq_1, fastq_2 ] ]
         }
         .groupTuple()
@@ -127,13 +127,33 @@ workflow PIPELINE_INITIALISATION {
 
     channel
         .fromList(samplesheet_list)
-        .filter { _meta, _fastq_1, _fastq_2, spaceranger -> spaceranger }
-        .map { meta, _fastq_1, _fastq_2, spaceranger -> [meta, spaceranger] }
+        .filter { _meta, _fastq_1, _fastq_2, spaceranger, _roi_annotations -> spaceranger }
+        .map { meta, _fastq_1, _fastq_2, spaceranger, _roi_annotations -> [meta, spaceranger] }
         .set { ch_spaceranger_outs }
+
+    channel
+        .fromList(samplesheet_list)
+        .filter { _meta, _fastq_1, _fastq_2, _spaceranger, roi_annotations -> roi_annotations }
+        .map { meta, _fastq_1, _fastq_2, _spaceranger, roi_annotations ->
+            [meta.id, roi_annotations]
+        }
+        .groupTuple()
+        .map { sample_id, annotations ->
+            def unique_annotations = annotations.unique()
+            if (unique_annotations.size() > 1) {
+                error(
+                    "Please check input samplesheet -> Multiple rows for sample '${sample_id}' " +
+                    "have different roi_annotations values: ${unique_annotations.join(', ')}"
+                )
+            }
+            [[id: sample_id], unique_annotations.first()]
+        }
+        .set { ch_roi_annotations }
 
     emit:
     samplesheet      = ch_samplesheet
     spaceranger_outs = ch_spaceranger_outs
+    roi_annotations  = ch_roi_annotations
     versions         = ch_versions
 }
 

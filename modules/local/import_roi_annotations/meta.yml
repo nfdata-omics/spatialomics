@@ -1,0 +1,55 @@
+name: import_roi_annotations
+description: Import crop-local polygon ROI annotations into SpatialData
+keywords:
+  - spatialdata
+  - roi
+  - geojson
+  - annotation
+tools:
+  - spatialdata:
+      description: SpatialData is a data framework for storing and manipulating spatial omics data.
+      homepage: https://spatialdata.scverse.org/
+      licence: ["BSD-3-Clause"]
+input:
+  - - meta:
+        type: map
+        description: Groovy Map containing sample information
+    - zarr_folder:
+        type: directory
+        description: Input SpatialData zarr folder
+        pattern: "*.zarr"
+    - roi_annotations:
+        type: file
+        description: Polygon ROI annotations in crop-local coordinates
+        pattern: "*.geojson"
+    - bounds:
+        type: file
+        description: Capture-area coordinate transformation contract
+        pattern: "*_visium_bounds.tsv"
+    - capture_area_image:
+        type: file
+        description: Capture-area image used to create the ROI annotations
+        pattern: "*_visium_capture_area.ome.tif"
+output:
+  zarr:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "*_roi_annotations.zarr":
+          type: directory
+          description: SpatialData zarr folder containing imported ROI annotations
+  roi_plot:
+    - - meta:
+          type: map
+          description: Groovy Map containing sample information
+      - "*_roi_annotations_mqc.png":
+          type: file
+          description: ROI annotations overlaid on the capture-area image
+  versions_container:
+    - versions_container:
+        type: tuple
+        description: Container version topic entry
+containers:
+  docker:
+    linux/amd64:
+      name: docker.io/nfdata/spatialdata:v0.7.2

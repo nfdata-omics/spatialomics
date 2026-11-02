@@ -79,6 +79,13 @@
                 "format": "path",
                 "exists": true,
                 "errorMessage": "Path to Space Ranger output directory must exist"
+            },
+            "roi_annotations": {
+                "type": "string",
+                "format": "file-path",
+                "exists": true,
+                "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.geojson$",
+                "description": "Optional ROI annotations in GeoJSON format, expressed in capture-area crop coordinates"
             }
         },
         "dependentRequired": {

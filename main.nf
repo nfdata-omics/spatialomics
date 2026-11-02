@@ -42,6 +42,7 @@ workflow NFDATAOMICS_SPATIALOMICS {
     take:
     samplesheet // channel: samplesheet read in from --input
     spaceranger_outs // channel: spaceranger output paths read in from --input
+    roi_annotations // channel: optional per-sample ROI GeoJSON files
 
     main:
 
@@ -61,6 +62,7 @@ workflow NFDATAOMICS_SPATIALOMICS {
     SPATIALOMICS (
         samplesheet,
         spaceranger_outs,
+        roi_annotations,
         ch_fasta,
         ch_gtf,
         ch_gff,
@@ -105,7 +107,8 @@ workflow {
     //
     NFDATAOMICS_SPATIALOMICS (
         PIPELINE_INITIALISATION.out.samplesheet,
-        PIPELINE_INITIALISATION.out.spaceranger_outs
+        PIPELINE_INITIALISATION.out.spaceranger_outs,
+        PIPELINE_INITIALISATION.out.roi_annotations
     )
 
     //

@@ -47,8 +47,8 @@ END_SCRIPT
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
     cat << 'END_BOUNDS' > "${prefix}_visium_bounds.tsv"
-x0	y0	x1	y1	crop_x0	crop_y0	crop_x1	crop_y1	source_width	source_height	padding	downsample_factor	output_width	output_height	scale_x	scale_y
-0	0	1	1	0	0	1	1	1	1	${crop_padding}	${crop_downsample_factor}	1	1	1	1
+x0	y0	x1	y1	crop_x0	crop_y0	crop_x1	crop_y1	source_width	source_height	padding	downsample_factor	output_width	output_height	scale_x	scale_y	zarr_downsample_factor
+0	0	1	1	0	0	1	1	1	1	${crop_padding}	${crop_downsample_factor}	1	1	1	1	${zarr_downsample_factor}
 END_BOUNDS
 
     touch "${prefix}_visium_capture_area.ome.tif"

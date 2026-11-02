@@ -63,7 +63,7 @@ output:
             e.g. [ id:'NFG021_002' ]
       - "*_visium_bounds.tsv":
           type: file
-          description: Full-resolution Visium and crop bounds plus output image dimensions and scale
+          description: Full-resolution Visium and crop bounds plus complete crop-to-SpatialData coordinate transformation
           pattern: "*_visium_bounds.tsv"
   crop:
     - - meta:
