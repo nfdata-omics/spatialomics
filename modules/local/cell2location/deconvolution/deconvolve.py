@@ -28,7 +28,7 @@ def parse_args():
         help="Spatial var column containing gene IDs, or var_names",
     )
     parser.add_argument("--max-epochs", type=int, default=200)
-    parser.add_argument("--batch-size", type=int, default=256)
+    parser.add_argument("--batch-size", type=int, default=35_000)
     parser.add_argument("--n-cells-per-location", type=float, default=3.0)
     parser.add_argument("--detection-alpha", type=float, default=20.0)
     parser.add_argument("--posterior-num-samples", type=int, default=1000)
