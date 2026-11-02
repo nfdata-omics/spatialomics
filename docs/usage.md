@@ -36,7 +36,7 @@ SAMPLE_B,SAMPLE_B_R1.fastq.gz,SAMPLE_B_R2.fastq.gz,SAMPLE_B_HE.tif,SAMPLE_B_CytA
 
 #### Pre-computed Space Ranger output and microscopy image
 
-Provide the Space Ranger `outs` directory in `spaceranger` and the corresponding H&E image in `image`. The pipeline skips `spaceranger count` for that sample and starts from the downstream conversion and analysis steps.
+Provide the Space Ranger `outs` directory, or a local or remote `.tar.gz` archive containing it, in `spaceranger`, and the corresponding H&E image in `image`. Archives are extracted automatically. The pipeline skips `spaceranger count` for that sample and starts from the downstream conversion and analysis steps.
 
 ```csv title="samplesheet.csv"
 sample,spaceranger,image
@@ -83,7 +83,7 @@ FASTQ input must contain the paired R1 and R2 files produced for a Visium librar
 | `manual_alignment` | Optional Space Ranger/Loupe alignment JSON passed to `spaceranger count --loupe-alignment`.                                                                                               |
 | `slidefile`        | Optional slide-layout file passed to `spaceranger count --slidefile`.                                                                                                                     |
 | `crop_areas`       | Optional downstream visualization regions in sample coordinates, formatted as `x0:y0:x1:y1`; separate multiple regions with semicolons.                                                   |
-| `spaceranger`      | Path to a pre-computed Space Ranger `outs` directory. Required when `fastq_1` is not supplied.                                                                                            |
+| `spaceranger`      | Path or URL to a pre-computed Space Ranger `outs` directory or `.tar.gz` archive. Archives are extracted automatically. Required when `fastq_1` is not supplied.                          |
 
 An [example samplesheet](../assets/samplesheet.csv) covering the input use cases described above is provided with the pipeline.
 

@@ -78,7 +78,8 @@
                 "type": "string",
                 "format": "path",
                 "exists": true,
-                "errorMessage": "Path to Space Ranger output directory must exist"
+                "description": "Path or URL to a pre-computed Space Ranger outs directory or .tar.gz archive",
+                "errorMessage": "Space Ranger output directory or .tar.gz archive must exist"
             },
             "roi_annotations": {
                 "type": "string",

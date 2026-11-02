@@ -8,6 +8,7 @@ include { MULTIQC                     } from '../modules/nf-core/multiqc/main'
 include { SPACERANGER_COUNT           } from '../modules/nf-core/spaceranger/count/main'
 include { COLLECT_SPACERANGER_METRICS } from '../modules/local/collect_spaceranger_metrics/main'
 include { SPACERANGER_TO_ZARR         } from '../modules/local/spaceranger_to_zarr/main'
+include { UNTAR as UNTAR_SPACERANGER_OUTS } from '../modules/nf-core/untar/main'
 include { TAR as TAR_RAW               } from '../modules/nf-core/tar/main'
 include { SPATIAL_QUALITY_CONTROL     } from '../modules/local/spatial_quality_control/main'
 include { COLLECT_QC                  } from '../modules/local/collect_qc/main'
@@ -61,6 +62,26 @@ workflow SPATIALOMICS {
     def ch_multiqc_files = channel.empty()
     def ch_deconvolution_multiqc_plots = channel.empty()
 
+    // Pre-computed Space Ranger inputs may be supplied either as an existing
+    // outs directory or as a .tar.gz archive (including a remote URL). Extract
+    // archives once and expose the same [meta, directory] tuple downstream.
+    ch_spaceranger_outs
+        .branch { meta, spaceranger_outs ->
+            archive: spaceranger_outs.name.toLowerCase().endsWith('.tar.gz')
+            directory: true
+        }
+        .set { ch_spaceranger_inputs }
+
+    UNTAR_SPACERANGER_OUTS (
+        ch_spaceranger_inputs.archive
+    )
+
+    UNTAR_SPACERANGER_OUTS.out.untar
+        .mix(ch_spaceranger_inputs.directory)
+        .set { ch_prepared_spaceranger_outs }
+
+    ch_versions = ch_versions.mix(UNTAR_SPACERANGER_OUTS.out.versions)
+
     //
     // SUBWORKFLOW: Prepare reference genome
     //
@@ -95,7 +116,7 @@ workflow SPATIALOMICS {
     // Also prepare images supplied with pre-computed Space Ranger outputs for
     // capture-area extraction and any other image-dependent downstream processing.
     ch_images_to_prepare = ch_images_to_prepare.mix(
-        ch_spaceranger_outs.map { meta, _out -> [["id": meta.id], meta.image] }
+        ch_prepared_spaceranger_outs.map { meta, _out -> [["id": meta.id], meta.image] }
     )
 
     // Select only CZI images for conversion to Space Ranger-compatible TIFF, and pass through any other image formats unchanged
@@ -136,7 +157,7 @@ workflow SPATIALOMICS {
 
     // Collect Space Ranger output paths for downstream processing
     SPACERANGER_COUNT.out.outs
-        .mix(ch_spaceranger_outs) // Add any additional Space Ranger output paths provided via --input
+        .mix(ch_prepared_spaceranger_outs) // Add prepared Space Ranger outputs provided via --input
         .set { ch_all_spaceranger_outs }
 
     //
@@ -270,7 +291,7 @@ workflow SPATIALOMICS {
         // skipped idiomatically for samples without a microscopy image.
         ch_segmentation_images = ch_microscopy_images
         ch_reads.map { meta, _fastq -> [["id": meta.id], meta.crop_areas ] }
-            .mix ( ch_spaceranger_outs.map { meta, _out -> [["id": meta.id], meta.crop_areas ] } )
+            .mix ( ch_prepared_spaceranger_outs.map { meta, _out -> [["id": meta.id], meta.crop_areas ] } )
             .set { ch_crop_areas }
     }
 
