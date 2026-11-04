@@ -518,6 +518,9 @@
             "$ref": "#/$defs/cell_segmentation_options"
         },
         {
+            "$ref": "#/$defs/he_image_processing_options"
+        },
+        {
             "$ref": "#/$defs/bin_to_cell_mapping_options"
         },
         {
