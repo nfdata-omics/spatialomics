@@ -54,6 +54,26 @@ For the CytAssist-enabled FASTQ inputs considered here, `cytaimage` is required.
 
 For each sample with a microscopy image, the pipeline extracts a crop containing the Visium capture area together with a TSV recording both the original Visium bounds and the effective crop bounds in full-resolution coordinates. Use `--capture_area_image_padding` to add full-resolution pixels around each side of the crop; the default is `0`. Padding is clamped to the source-image boundaries and does not change the bounds used for segmentation. The exported crop is downsampled by `--capture_area_image_downsample_factor`, which defaults to `4` and therefore produces an image approximately one quarter as wide and one quarter as high; use `1` to retain the original crop dimensions. Registration and overview plots use a separate adaptive preview whose longest side is limited by `--microscopy_preview_max_dimension`, which defaults to `2000`; this does not affect the full-resolution microscopy layer. The TSV also records the output dimensions and effective scales needed to map annotations back to the source image. Set `--save_capture_area_image false` to omit the crop and coordinate TSV from the published results without skipping their generation. Extraction is independent of `--skip_segmentation`.
 
+### Optional Cell2location deconvolution
+
+Provide `--single_cell_reference_h5ad` to enable Cell2location deconvolution; no
+separate enable or skip flag is required. The reference AnnData must contain raw
+counts and cell-type annotations. Its internal keys are selected with the
+`single_cell_reference_*` parameters documented in the generated parameter help.
+
+The reference model is trained once. The pipeline then collects the QC-passing
+locations from every spatial sample in the run and trains one joint spatial model,
+using the sample identity as the Cell2location batch. Posterior results are split
+by sample identity and reinserted into the corresponding SpatialData before
+segmentation and final publication. Sample association does not depend on channel
+emission order.
+
+A run should therefore contain a coherent project-level set of compatible slides
+generated with the same technology, resolution and preprocessing. The current
+design is intended for up to approximately 24 such slides and supports one
+single-cell reference per pipeline run. Training separate models for heterogeneous
+sample groups is not yet implemented.
+
 ### Multiple runs of the same sample
 
 The `sample` identifiers have to be the same when you have re-sequenced the same sample more than once e.g. to increase sequencing depth. The pipeline will concatenate the raw reads before performing any downstream analysis. Below is an example for the same sample sequenced across 3 lanes:

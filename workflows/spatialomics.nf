@@ -14,6 +14,7 @@ include { SPATIAL_QUALITY_CONTROL     } from '../modules/local/spatial_quality_c
 include { COLLECT_QC                  } from '../modules/local/collect_qc/main'
 include { CELL2LOCATION_REFERENCE     } from '../modules/local/cell2location/reference/main'
 include { CELL2LOCATION_DECONVOLUTION } from '../modules/local/cell2location/deconvolution/main'
+include { CELL2LOCATION_REINSERT      } from '../modules/local/cell2location/reinsert/main'
 include { CELL2LOCATION_PLOTS         } from '../modules/local/cell2location/plots/main'
 include { CZI_TO_SPACERANGER_TIFF     } from '../modules/local/czi_to_spaceranger_tiff/main'
 include { PREPARE_SEGMENTATION_IMAGE  } from '../modules/local/prepare_segmentation_image/main'
@@ -210,17 +211,52 @@ workflow SPATIALOMICS {
             .first()
             .set { ch_cell2location_signatures }
 
+        // Canonically order the sample/SpatialData pairs before concatenation so
+        // seeded minibatching and task hashes remain reproducible.
+        SPATIAL_QUALITY_CONTROL.out.zarr
+            .toSortedList { left, right -> left[0].id <=> right[0].id }
+            .map { samples ->
+                [
+                    samples.collect { entry -> entry[0].id },
+                    samples.collect { entry -> entry[1] }
+                ]
+            }
+            .set { ch_cell2location_sample_set }
+
         //
-        // MODULE: Deconvolve each QC-annotated SpatialData sample
+        // MODULE: Train one joint spatial model and export one posterior per sample
         //
         CELL2LOCATION_DECONVOLUTION (
-            SPATIAL_QUALITY_CONTROL.out.zarr,
+            ch_cell2location_sample_set,
             ch_cell2location_signatures
         )
 
+        // Reinsert all posterior results in one lightweight task and then restore
+        // the established per-sample [meta, zarr] workflow contract by sample ID.
+        CELL2LOCATION_REINSERT (
+            ch_cell2location_sample_set,
+            CELL2LOCATION_DECONVOLUTION.out.posteriors,
+            CELL2LOCATION_DECONVOLUTION.out.manifest,
+            CELL2LOCATION_DECONVOLUTION.out.training_history,
+            CELL2LOCATION_DECONVOLUTION.out.diagnostics
+        )
+
+        CELL2LOCATION_REINSERT.out.zarr
+            .flatten()
+            .map { zarr ->
+                [zarr.name.replaceFirst(/_cell2location\.zarr$/, ''), zarr]
+            }
+            .join(
+                SPATIAL_QUALITY_CONTROL.out.zarr.map { meta, _zarr -> [meta.id, meta] },
+                failOnDuplicate: true,
+                failOnMismatch: true
+            )
+            .map { _sample_id, zarr, meta -> [meta, zarr] }
+            .set { ch_cell2location_zarr }
+
         // Generate complete per-sample result plots and MultiQC inputs.
         CELL2LOCATION_PLOTS (
-            CELL2LOCATION_DECONVOLUTION.out.zarr,
+            ch_cell2location_zarr,
             params.bin_analysis_bin_size,
             params.cell2location_abundance_statistic,
             params.cell2location_uncertainty_min_abundance,
@@ -235,7 +271,7 @@ workflow SPATIALOMICS {
             CELL2LOCATION_PLOTS.out.summary_mqc.map { _meta, path -> path }
         )
 
-        ch_zarr_before_segmentation = CELL2LOCATION_DECONVOLUTION.out.zarr
+        ch_zarr_before_segmentation = ch_cell2location_zarr
     } else {
         ch_zarr_before_segmentation = SPATIAL_QUALITY_CONTROL.out.zarr
     }

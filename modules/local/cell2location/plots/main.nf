@@ -17,14 +17,11 @@ process CELL2LOCATION_PLOTS {
     tuple val(meta), path("*_relative_posterior_uncertainty_spatial.pdf"),  emit: posterior_uncertainty
     tuple val(meta), path("*_celltype_abundance_*.pdf"),                   emit: celltype_abundance
     tuple val(meta), path("*_celltype_fraction_*.pdf"),                    emit: celltype_fraction
+    tuple val(meta), path("*_dominant_celltype_*.pdf"),                    emit: dominant_celltype
     tuple val(meta), path("*_total_abundance_*.pdf"),                      emit: total_abundance
     tuple val(meta), path("*_deconvolution_mqc.png"),                      emit: mqc_plot
     tuple val(meta), path("*_celltype_composition_*_mqc.tsv"),             emit: composition_mqc
     tuple val(meta), path("*_deconvolution_summary_*_mqc.tsv"),            emit: summary_mqc
-    tuple val(meta), path("*_training_history.csv"),                        emit: training_history
-    tuple val(meta), path("*_training_history.png"),                        emit: training_history_plot
-    tuple val(meta), path("*_reconstruction_accuracy.png"),                emit: reconstruction_accuracy, optional: true
-    tuple val(meta), path("*_reconstruction_accuracy_error.txt"),          emit: reconstruction_error, optional: true
     tuple val(meta), path("*_diagnostics.tsv"),                             emit: diagnostics
     tuple val("${task.process}"), val('container'), val('docker.io/nfdata/spatialdata:v0.7.2'), emit: versions_container, topic: versions
 
@@ -65,13 +62,11 @@ END_SCRIPT
     touch "${prefix}_relative_posterior_uncertainty_spatial.pdf"
     touch "${prefix}_celltype_abundance_${abundance_statistic}.pdf"
     touch "${prefix}_celltype_fraction_${abundance_statistic}.pdf"
+    touch "${prefix}_dominant_celltype_${abundance_statistic}.pdf"
     touch "${prefix}_total_abundance_${abundance_statistic}.pdf"
     touch "${prefix}_deconvolution_mqc.png"
     touch "${prefix}_celltype_composition_${abundance_statistic}_mqc.tsv"
     touch "${prefix}_deconvolution_summary_${abundance_statistic}_mqc.tsv"
-    touch "${prefix}_training_history.csv"
-    touch "${prefix}_training_history.png"
-    touch "${prefix}_reconstruction_accuracy.png"
     touch "${prefix}_diagnostics.tsv"
     """
 }

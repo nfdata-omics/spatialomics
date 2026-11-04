@@ -58,103 +58,6 @@ def parse_args():
     return parser.parse_args()
 
 
-def read_training_history(metadata):
-    """Validate and return the training history stored by deconvolution."""
-    history = metadata.get("training_history")
-    if isinstance(history, dict):
-        epochs = np.asarray(history.get("epoch", []))
-        elbo = np.asarray(history.get("elbo_train", []), dtype=float)
-    elif history is not None:
-        # Backward compatibility with SpatialData produced before epochs were
-        # stored explicitly alongside the ELBO values.
-        elbo = np.asarray(history, dtype=float)
-        epochs = np.arange(len(elbo))
-    else:
-        raise ValueError("table.uns['cell2location']['training_history'] is missing")
-    if epochs.ndim != 1 or elbo.ndim != 1 or len(epochs) != len(elbo):
-        raise ValueError("Cell2location training-history arrays are not aligned")
-    if len(epochs) == 0:
-        raise ValueError("Cell2location training history is empty")
-    if not np.isfinite(elbo).all():
-        raise ValueError("Cell2location training history contains non-finite ELBO values")
-    return pd.DataFrame({"epoch": epochs, "elbo_train": elbo})
-
-
-def plot_training_history(training_history, output_path):
-    """Plot complete and post-warmup Cell2location training histories."""
-    history_start = max(1, int(len(training_history) * 0.2))
-    fig, axes = plt.subplots(1, 2, figsize=(12, 4.5))
-    axes[0].plot(training_history["epoch"], training_history["elbo_train"])
-    axes[0].set(title="Complete training history", xlabel="Epoch", ylabel="-ELBO loss")
-    axes[1].plot(
-        training_history["epoch"].iloc[history_start:],
-        training_history["elbo_train"].iloc[history_start:],
-    )
-    axes[1].set(title="Training history after first 20%", xlabel="Epoch", ylabel="-ELBO loss")
-    fig.tight_layout()
-    fig.savefig(output_path, dpi=200)
-    plt.close(fig)
-
-
-def plot_reconstruction_accuracy(reconstruction_qc, output_path):
-    """Render the expected-vs-observed histogram computed during deconvolution."""
-    if reconstruction_qc.get("status") != "success":
-        return False
-
-    histogram = np.asarray(reconstruction_qc.get("histogram"), dtype=float)
-    observed_edges = np.asarray(
-        reconstruction_qc.get("observed_log10_edges"), dtype=float
-    )
-    expected_edges = np.asarray(
-        reconstruction_qc.get("expected_log10_edges"), dtype=float
-    )
-    if histogram.ndim != 2:
-        raise ValueError("Reconstruction histogram is not two-dimensional")
-    if len(observed_edges) != histogram.shape[0] + 1:
-        raise ValueError("Observed reconstruction edges do not match the histogram")
-    if len(expected_edges) != histogram.shape[1] + 1:
-        raise ValueError("Expected reconstruction edges do not match the histogram")
-    if not np.isfinite(histogram).all() or (histogram < 0).any():
-        raise ValueError("Reconstruction histogram contains invalid counts")
-    if not np.isfinite(observed_edges).all() or not np.isfinite(expected_edges).all():
-        raise ValueError("Reconstruction histogram edges are not finite")
-    positive_counts = histogram[histogram > 0]
-    if positive_counts.size == 0:
-        raise ValueError("Reconstruction histogram contains no observations")
-
-    fig, axis = plt.subplots(figsize=(6, 5.5))
-    mesh = axis.pcolormesh(
-        observed_edges,
-        expected_edges,
-        np.ma.masked_less_equal(histogram.T, 0),
-        cmap="viridis",
-        norm=LogNorm(vmin=1, vmax=max(2, float(positive_counts.max()))),
-        shading="auto",
-    )
-    lower = min(float(observed_edges[0]), float(expected_edges[0]))
-    upper = max(float(observed_edges[-1]), float(expected_edges[-1]))
-    axis.plot(
-        [lower, upper],
-        [lower, upper],
-        color="black",
-        linestyle="--",
-        linewidth=0.8,
-    )
-    axis.set(
-        title="Reconstruction accuracy",
-        xlabel="Observed counts, log10(count + 1)",
-        ylabel="Posterior expected counts, log10(count + 1)",
-        xlim=(lower, upper),
-        ylim=(lower, upper),
-    )
-    axis.set_aspect("equal", adjustable="box")
-    fig.colorbar(mesh, ax=axis, label="Gene-location pairs per bin")
-    fig.tight_layout()
-    fig.savefig(output_path, dpi=200)
-    plt.close(fig)
-    return True
-
-
 def plot_posterior_mean_vs_q05(mean, q05, sample_name, output_path):
     """Plot faceted hexbins comparing posterior mean and q05."""
     cell_types = mean.columns.tolist()
@@ -335,7 +238,7 @@ def plot_celltype_abundance(
             plot = sdata.pl.render_images(image_key, cmap="gray").pl.render_shapes(
                 shape_key,
                 color=column,
-                cmap="viridis",
+                cmap="magma",
                 norm=norm,
                 fill_alpha=0.75,
                 outline_width=0,
@@ -346,7 +249,7 @@ def plot_celltype_abundance(
             plot = sdata.pl.render_shapes(
                 shape_key,
                 color=column,
-                cmap="viridis",
+                cmap="magma",
                 norm=norm,
                 fill_alpha=0.9,
                 outline_width=0,
@@ -355,7 +258,7 @@ def plot_celltype_abundance(
             )
         plot.pl.show(coordinate_systems=coordinate_system, ax=axis, colorbar=False)
         colorbar = fig.colorbar(
-            ScalarMappable(norm=norm, cmap="viridis"),
+            ScalarMappable(norm=norm, cmap="magma"),
             ax=axis,
             fraction=0.046,
             pad=0.03,
@@ -404,7 +307,7 @@ def plot_celltype_fraction(
             plot = sdata.pl.render_images(image_key, cmap="gray").pl.render_shapes(
                 shape_key,
                 color=column,
-                cmap="viridis",
+                cmap="magma",
                 norm=norm,
                 fill_alpha=0.75,
                 outline_width=0,
@@ -415,7 +318,7 @@ def plot_celltype_fraction(
             plot = sdata.pl.render_shapes(
                 shape_key,
                 color=column,
-                cmap="viridis",
+                cmap="magma",
                 norm=norm,
                 fill_alpha=0.9,
                 outline_width=0,
@@ -424,7 +327,7 @@ def plot_celltype_fraction(
             )
         plot.pl.show(coordinate_systems=coordinate_system, ax=axis, colorbar=False)
         colorbar = fig.colorbar(
-            ScalarMappable(norm=norm, cmap="viridis"),
+            ScalarMappable(norm=norm, cmap="magma"),
             ax=axis,
             fraction=0.046,
             pad=0.03,
@@ -439,6 +342,61 @@ def plot_celltype_fraction(
 
     fig.suptitle(f"Cell-type fraction ({statistic})", fontsize=14, y=0.995)
     fig.subplots_adjust(top=0.92, wspace=0.15, hspace=0.2)
+    fig.savefig(output_path, bbox_inches="tight")
+    plt.close(fig)
+
+
+def plot_dominant_celltype(
+    sdata,
+    shape_key,
+    image_key,
+    coordinate_system,
+    dominant_column,
+    dominant_palette,
+    legend_entries,
+    statistic,
+    output_path,
+):
+    """Plot the dominant cell type with colour intensity representing its fraction."""
+    fig, axis = plt.subplots(figsize=(9, 8))
+    if image_key:
+        plot = sdata.pl.render_images(image_key, cmap="gray").pl.render_shapes(
+            shape_key,
+            color=dominant_column,
+            groups=dominant_palette,
+            palette=dominant_palette,
+            fill_alpha=0.9,
+            outline_width=0,
+            na_color="#00000000",
+            colorbar=False,
+        )
+    else:
+        plot = sdata.pl.render_shapes(
+            shape_key,
+            color=dominant_column,
+            groups=dominant_palette,
+            palette=dominant_palette,
+            fill_alpha=0.95,
+            outline_width=0,
+            na_color="#00000000",
+            colorbar=False,
+        )
+    plot.pl.show(
+        coordinate_systems=coordinate_system,
+        ax=axis,
+        legend_loc=None,
+        na_in_legend=False,
+    )
+    axis.set_title(f"Dominant cell type ({statistic})")
+    axis.set_axis_off()
+    axis.legend(
+        handles=[Patch(facecolor=colour, label=label) for label, colour in legend_entries],
+        loc="upper left",
+        bbox_to_anchor=(1.01, 1),
+        frameon=False,
+        fontsize=8,
+    )
+    fig.subplots_adjust(right=0.78)
     fig.savefig(output_path, bbox_inches="tight")
     plt.close(fig)
 
@@ -609,7 +567,7 @@ def plot_multiqc_deconvolution(
         Patch(facecolor=colour, label=cell_type)
         for cell_type, colour in zip(selected_cell_types, colours)
     ]
-    legend_handles.append(Patch(facecolor="#9e9e9e", label="Other cell types"))
+    legend_handles.append(Patch(facecolor="#e0e0e0", label="Other cell types"))
     axes[1].legend(
         handles=legend_handles,
         loc="lower center",
@@ -782,13 +740,26 @@ def main():
     selected_coverage = float(slide_composition.loc[selected_cell_types].sum())
 
     selected_fractions = fractions[selected_cell_types]
-    other_fraction = (1 - selected_fractions.sum(axis=1, min_count=1)).clip(lower=0, upper=1)
+    selected_fraction_total = selected_fractions.sum(axis=1, min_count=1).clip(
+        lower=0,
+        upper=1,
+    )
+    relative_selected_fractions = selected_fractions.div(
+        selected_fraction_total.replace(0, np.nan),
+        axis=0,
+    )
     basis_colours = np.asarray(
         [to_rgb(colour) for colour in ["#d81b60", "#00a6d6", "#f4c430"]]
     )
+    mixture_hue = (
+        relative_selected_fractions.fillna(0).to_numpy()
+        @ basis_colours[: len(selected_cell_types)]
+    )
+    saturation = np.sqrt(selected_fraction_total.fillna(0).to_numpy())[:, None]
+    light_grey = np.asarray(to_rgb("#e0e0e0"))
     mixture_rgb = (
-        selected_fractions.fillna(0).to_numpy() @ basis_colours[: len(selected_cell_types)]
-        + other_fraction.fillna(0).to_numpy()[:, None] * np.asarray(to_rgb("#9e9e9e"))
+        saturation * mixture_hue
+        + (1 - saturation) * light_grey
     )
     mixture_rgb = np.round(np.clip(mixture_rgb, 0, 1) * 15) / 15
     mixture_values = pd.Series(pd.NA, index=table.obs_names, dtype="object")
@@ -798,6 +769,42 @@ def main():
     mixture_column = "_c2l_plot_mixture_colour"
     table.obs[mixture_column] = pd.Categorical(mixture_values)
     mixture_palette = table.obs[mixture_column].cat.categories.tolist()
+
+    dominant_cell_type = fractions.idxmax(axis=1).where(modelled & total_abundance.gt(0))
+    dominant_fraction = fractions.max(axis=1).where(dominant_cell_type.notna())
+    dominant_counts = dominant_cell_type.loc[modelled].value_counts()
+    displayed_dominant_types = dominant_counts.head(10).index.tolist()
+    tab10 = matplotlib.colormaps["tab10"]
+    dominant_base_colours = {
+        cell_type: np.asarray(tab10(index)[:3])
+        for index, cell_type in enumerate(displayed_dominant_types)
+    }
+    dominant_light_grey = np.asarray(to_rgb("#e0e0e0"))
+    dominant_rgb = np.tile(dominant_light_grey, (table.n_obs, 1))
+    for row_index, (cell_type, cell_fraction) in enumerate(
+        zip(dominant_cell_type, dominant_fraction)
+    ):
+        if pd.isna(cell_type) or pd.isna(cell_fraction):
+            continue
+        base_colour = dominant_base_colours.get(cell_type, dominant_light_grey)
+        dominant_rgb[row_index] = (
+            float(cell_fraction) * base_colour
+            + (1 - float(cell_fraction)) * dominant_light_grey
+        )
+    dominant_rgb = np.round(np.clip(dominant_rgb, 0, 1) * 15) / 15
+    dominant_values = pd.Series(pd.NA, index=table.obs_names, dtype="object")
+    dominant_values.loc[modelled] = [
+        to_hex(colour) for colour in dominant_rgb[modelled.to_numpy()]
+    ]
+    dominant_column = "_c2l_plot_dominant_colour"
+    table.obs[dominant_column] = pd.Categorical(dominant_values)
+    dominant_palette = table.obs[dominant_column].cat.categories.tolist()
+    dominant_legend_entries = [
+        (cell_type, to_hex(dominant_base_colours[cell_type]))
+        for cell_type in displayed_dominant_types
+    ]
+    if len(dominant_counts) > len(displayed_dominant_types):
+        dominant_legend_entries.append(("Other cell types", "#e0e0e0"))
 
     finite_uncertainty = uncertainty.to_numpy()[np.isfinite(uncertainty.to_numpy())]
     uncertainty_vmax = (
@@ -817,26 +824,6 @@ def main():
     args.output_dir.mkdir(parents=True, exist_ok=True)
     prefix = args.output_dir / output_prefix
 
-    training_history = read_training_history(cell2location_metadata)
-    training_history.to_csv(f"{prefix}_training_history.csv", index=False)
-    plot_training_history(training_history, Path(f"{prefix}_training_history.png"))
-
-    reconstruction_qc = cell2location_metadata.get("reconstruction_qc", {})
-    reconstruction_plot_status = "failed"
-    reconstruction_error = str(reconstruction_qc.get("error", ""))
-    if plot_reconstruction_accuracy(
-        reconstruction_qc,
-        Path(f"{prefix}_reconstruction_accuracy.png"),
-    ):
-        reconstruction_plot_status = "success"
-    else:
-        if not reconstruction_error:
-            reconstruction_error = "Reconstruction QC data are unavailable"
-        Path(f"{prefix}_reconstruction_accuracy_error.txt").write_text(
-            reconstruction_error + "\n",
-            encoding="utf-8",
-        )
-
     diagnostics = pd.DataFrame(
         [
             {
@@ -846,11 +833,13 @@ def main():
                     cell2location_metadata.get("n_shared_genes", table.n_vars)
                 ),
                 "cell_types": int(len(cell_types)),
-                "epochs_completed": int(len(training_history)),
-                "initial_elbo": float(training_history["elbo_train"].iloc[0]),
-                "final_elbo": float(training_history["elbo_train"].iloc[-1]),
-                "reconstruction_plot": reconstruction_plot_status,
-                "reconstruction_error": reconstruction_error,
+                "joint_samples": int(cell2location_metadata.get("n_samples", 1)),
+                "joint_modelled_locations": int(
+                    cell2location_metadata.get(
+                        "n_joint_modelled_locations",
+                        cell2location_metadata.get("n_modelled_locations", modelled.sum()),
+                    )
+                ),
             }
         ]
     )
@@ -894,6 +883,17 @@ def main():
         fractions,
         args.abundance_statistic,
         Path(f"{prefix}_celltype_fraction_{args.abundance_statistic}.pdf"),
+    )
+    plot_dominant_celltype(
+        sdata_crop,
+        shape_key,
+        image_key,
+        args.sample_name,
+        dominant_column,
+        dominant_palette,
+        dominant_legend_entries,
+        args.abundance_statistic,
+        Path(f"{prefix}_dominant_celltype_{args.abundance_statistic}.pdf"),
     )
     plot_total_abundance(
         sdata_crop,

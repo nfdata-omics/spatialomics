@@ -13,6 +13,7 @@ The directories listed below will be created in the results directory after the 
 The pipeline is built using [Nextflow](https://www.nextflow.io/) and processes data using the following steps:
 
 - [Raw SpatialData archive](#raw-spatialdata-archive) - SpatialData generated directly from Space Ranger output
+- [Cell2location deconvolution](#cell2location-deconvolution) - Joint-model diagnostics, posterior tables, and per-sample spatial plots
 - [Final SpatialData](#final-spatialdata) - Analysis-ready SpatialData selected from the most advanced completed workflow branch
 - [FastQC](#fastqc) - Raw read QC
 - [MultiQC](#multiqc) - Aggregate report describing results and QC from the whole pipeline
@@ -29,6 +30,38 @@ The pipeline is built using [Nextflow](https://www.nextflow.io/) and processes d
 </details>
 
 This archive is provided for completeness and long-term storage. Extract it before opening the contained Zarr directory with SpatialData.
+
+### Cell2location deconvolution
+
+This section is produced when `--single_cell_reference_h5ad` is supplied. One spatial model is trained jointly across all samples in the pipeline run, using sample identity as the Cell2location batch.
+
+<details markdown="1">
+<summary>Output files</summary>
+
+- `deconvolution/`
+  - `*_reference_signatures.csv`: Cell-type expression signatures inferred from the single-cell reference.
+  - `*_cell2location_abundance_mean.csv`: Per-location posterior mean abundance for each cell type.
+  - `*_cell2location_abundance_q05.csv`: Per-location posterior q05 abundance for each cell type.
+  - `cell2location_training_history.csv`: Joint-model training ELBO values by epoch.
+  - `cell2location_training_history.png`: Complete and post-warmup training history.
+  - `cell2location_joint_diagnostics.json`: Model settings, provenance and compact reconstruction data.
+  - `cell2location_joint_diagnostics.tsv`: Selected joint-model diagnostic metrics.
+  - `cell2location_posterior_manifest.tsv`: Sample-to-posterior association and input dimensions.
+  - `cell2location_reconstruction_accuracy.png`: Joint expected-versus-observed reconstruction plot, when available.
+  - `cell2location_reconstruction_accuracy_error.txt`: Diagnostic error recorded instead when the reconstruction plot cannot be generated.
+  - `<sample>_cell2location/`
+    - `*_posterior_mean_vs_q05.pdf`: Posterior mean and q05 comparison by cell type.
+    - `*_relative_posterior_uncertainty_spatial.pdf`: Spatial posterior uncertainty maps.
+    - `*_celltype_abundance_*.pdf`: Cell-type abundance maps.
+    - `*_celltype_fraction_*.pdf`: Within-location cell-type fraction maps.
+    - `*_dominant_celltype_*.pdf`: Dominant cell type and assignment-strength map.
+    - `*_total_abundance_*.pdf`: Total-abundance distribution and spatial map.
+    - `*_deconvolution_mqc.png`: Compact per-sample image included in MultiQC.
+    - `*_diagnostics.tsv` and `*_mqc.tsv`: Per-sample diagnostics and MultiQC custom-content inputs.
+
+</details>
+
+The posterior matrices are also stored in the corresponding table of the final SpatialData. Locations excluded by spatial QC contain missing posterior values.
 
 ### Final SpatialData
 

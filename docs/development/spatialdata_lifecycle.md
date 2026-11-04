@@ -19,6 +19,7 @@ Relevant implementation files are:
 - [`modules/local/spaceranger_to_zarr/`](../../modules/local/spaceranger_to_zarr/);
 - [`modules/local/spatial_quality_control/`](../../modules/local/spatial_quality_control/);
 - [`modules/local/cell2location/deconvolution/`](../../modules/local/cell2location/deconvolution/);
+- [`modules/local/cell2location/reinsert/`](../../modules/local/cell2location/reinsert/);
 - [`modules/local/spatialdata_augment_with_segmentation/`](../../modules/local/spatialdata_augment_with_segmentation/);
 - [`modules/local/import_roi_annotations/`](../../modules/local/import_roi_annotations/).
 
@@ -55,8 +56,10 @@ version available for that sample:
 1. `SPACERANGER_TO_ZARR` creates the raw SpatialData from Space Ranger output.
 2. `SPATIAL_QUALITY_CONTROL` creates the mandatory QC-annotated version used by
    downstream analyses.
-3. `CELL2LOCATION_DECONVOLUTION` replaces the QC version when a single-cell
-   reference is supplied; otherwise the QC version continues unchanged.
+3. `CELL2LOCATION_DECONVOLUTION` trains one joint spatial model when a single-cell
+   reference is supplied, and `CELL2LOCATION_REINSERT` creates the deconvolved
+   per-sample SpatialData versions. Without a reference, the QC versions continue
+   unchanged.
 4. `SPATIALDATA_AUGMENT_WITH_SEGMENTATION` replaces the preceding version for
    samples with the required segmentation inputs. Other samples retain the
    preceding version through a keyed join with `remainder: true`.
@@ -206,11 +209,13 @@ samples to reach final publication.
 
 ### Known consistency gaps
 
-- `SPATIAL_QUALITY_CONTROL` and `CELL2LOCATION_DECONVOLUTION` call
-  `SpatialData.write()` without currently enabling
-  `anndata.settings.allow_write_nullable_strings`. These stages have not raised
-  the reported error in the observed runs, but they should be audited against
-  the shared writer invariant rather than relying on the current input dtypes.
+- `SPATIAL_QUALITY_CONTROL` and `CELL2LOCATION_REINSERT` call
+  `SpatialData.write()` without explicitly enabling
+  `anndata.settings.allow_write_nullable_strings`. A local Docker end-to-end run
+  completed both stages successfully on 2026-11-04, including reinsertion of the
+  Cell2location results. This validates the observed mock-dataset dtypes, but not
+  every possible input dtype; an explicit shared writer invariant may still be
+  preferable if nullable strings are introduced by other datasets.
 - `SPACERANGER_TO_ZARR` also writes SpatialData without the explicit setting.
   Its object originates directly from `spatialdata_io`, so its exact AnnData
   dtypes and compatibility should be checked separately.
