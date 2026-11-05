@@ -500,14 +500,15 @@ def plot_multiqc_deconvolution(
     values = total_abundance.dropna().to_numpy()
     vmax = max(float(np.percentile(values, 99)), np.finfo(float).eps)
     colours = ["#d81b60", "#00a6d6", "#f4c430"]
+    norm = Normalize(vmin=0, vmax=vmax)
 
-    fig, axes = plt.subplots(1, 2, figsize=(12, 5.5))
+    fig, axes = plt.subplots(1, 2, figsize=(11.8, 5.5))
     if image_key:
         total_plot = sdata.pl.render_images(image_key, cmap="gray").pl.render_shapes(
             shape_key,
             color=total_column,
             cmap="viridis",
-            norm=Normalize(vmin=0, vmax=vmax),
+            norm=norm,
             fill_alpha=0.8,
             outline_width=0,
             na_color="#00000000",
@@ -518,13 +519,13 @@ def plot_multiqc_deconvolution(
             shape_key,
             color=total_column,
             cmap="viridis",
-            norm=Normalize(vmin=0, vmax=vmax),
+            norm=norm,
             fill_alpha=0.95,
             outline_width=0,
             na_color="#00000000",
             colorbar=False,
         )
-    total_plot.pl.show(coordinate_systems=coordinate_system, ax=axes[0])
+    total_plot.pl.show(coordinate_systems=coordinate_system, ax=axes[0], colorbar=False)
     axes[0].set_title(f"Total abundance ({statistic})")
     axes[0].set_axis_off()
 
@@ -581,9 +582,17 @@ def plot_multiqc_deconvolution(
         if all(extra_axis is not axis for axis in axes.ravel()):
             extra_axis.remove()
 
-    fig.suptitle(f"{sample_name}: Cell2location deconvolution", fontsize=14)
-    fig.subplots_adjust(top=0.88, bottom=0.15, wspace=0.08)
-    fig.savefig(output_path, dpi=160)
+    colorbar = fig.colorbar(
+        ScalarMappable(norm=norm, cmap="viridis"),
+        ax=axes[0],
+        fraction=0.046,
+        pad=0.03,
+    )
+    colorbar.set_label("Total abundance", fontsize=8)
+    colorbar.ax.tick_params(labelsize=7)
+
+    fig.subplots_adjust(left=0.02, right=0.98, top=0.96, bottom=0.18, wspace=0.12)
+    fig.savefig(output_path, dpi=100, bbox_inches="tight", pad_inches=0.05)
     plt.close(fig)
 
 

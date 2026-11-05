@@ -6,7 +6,8 @@ import importlib.metadata
 import argparse
 import sys
 from pathlib import Path
-from matplotlib.colors import Normalize
+from matplotlib.colors import LinearSegmentedColormap, Normalize
+from matplotlib.cm import ScalarMappable
 import yaml
 
 import numpy as np
@@ -19,8 +20,127 @@ import scanpy as sc
 import spatialdata
 import spatialdata_plot # noqa: F401 # pyright: ignore[reportUnusedImport] # pylint: disable=unused-import
 import spotsweeper.local_outliers as lo
+from spatialdata.models import Image2DModel
+from spatialdata.transformations import get_transformation
 
 matplotlib.use("Agg")
+
+
+def add_grayscale_preview_image(sdata, source_key, target_key):
+    """Add a temporary single-channel luminance view with source transformations."""
+    image = sdata.images[source_key]
+    channel_names = set(image.coords["c"].values.tolist())
+    if {"r", "g", "b"}.issubset(channel_names):
+        grayscale = (
+            0.2126 * image.sel(c="r")
+            + 0.7152 * image.sel(c="g")
+            + 0.0722 * image.sel(c="b")
+        )
+    else:
+        grayscale = image.mean(dim="c")
+    grayscale = grayscale.expand_dims(c=["gray"]).transpose("c", "y", "x")
+    grayscale.attrs = {}
+    sdata.images[target_key] = Image2DModel.parse(
+        grayscale,
+        transformations=get_transformation(image, get_all=True),
+    )
+
+
+def save_registration_tissue_preview(sdata, sample_id, resolution, output_path):
+    """Save registered H&E/CytAssist and Space Ranger tissue-selection previews."""
+    hires_key = f"{sample_id}_hires_image"
+    cytassist_key = f"{sample_id}_cytassist_image"
+    square_key = f"{sample_id}_{resolution}"
+    capture_key = f"{sample_id}_capture_area"
+
+    required = [hires_key, square_key, capture_key]
+    missing = [key for key in required if key not in sdata]
+    if missing:
+        raise ValueError(
+            "Cannot create the registration and tissue-selection preview; missing "
+            f"SpatialData element(s): {', '.join(missing)}"
+        )
+
+    minx, miny, maxx, maxy = sdata.shapes[capture_key].total_bounds
+    padding = max(maxx - minx, maxy - miny) * 0.02
+    capture_crop = sdata.query.bounding_box(
+        axes=("x", "y"),
+        min_coordinate=[minx - padding, miny - padding],
+        max_coordinate=[maxx + padding, maxy + padding],
+        target_coordinate_system=sample_id,
+    )
+
+    has_cytassist = cytassist_key in capture_crop.images
+    n_panels = 2 if has_cytassist else 1
+    fig, axes = plt.subplots(1, n_panels, figsize=(12, 5.5), squeeze=False)
+    axes = axes.ravel()
+
+    hires_gray_key = "_registration_hires_gray"
+    add_grayscale_preview_image(capture_crop, hires_key, hires_gray_key)
+
+    if has_cytassist:
+        cytassist_gray_key = "_registration_cytassist_gray"
+        add_grayscale_preview_image(capture_crop, cytassist_key, cytassist_gray_key)
+        cytassist_cmap = LinearSegmentedColormap.from_list(
+            "cytassist_magenta",
+            ["#000000", "#ff00ff"],
+        )
+        capture_crop.pl.render_images(
+            hires_gray_key,
+            cmap="gray",
+            colorbar=False,
+        ).pl.render_images(
+            cytassist_gray_key,
+            cmap=cytassist_cmap,
+            alpha=0.45,
+            colorbar=False,
+        ).pl.render_shapes(
+            capture_key,
+            fill_alpha=0,
+            outline_color="#39ff14",
+            outline_width=2,
+            outline_alpha=1,
+        ).pl.show(
+            coordinate_systems=sample_id,
+            ax=axes[0],
+            colorbar=False,
+            title="H&E / CytAssist registration",
+        )
+        axes[0].set_axis_off()
+        tissue_axis = axes[1]
+    else:
+        print(
+            f"CytAssist layer '{cytassist_key}' is unavailable; "
+            "creating only the Space Ranger tissue-selection panel"
+        )
+        tissue_axis = axes[0]
+
+    capture_crop.pl.render_images(
+        hires_gray_key,
+        cmap="gray",
+        colorbar=False,
+    ).pl.render_shapes(
+        square_key,
+        color="#00d5ff",
+        fill_alpha=0.35,
+        outline_width=0,
+    ).pl.render_shapes(
+        capture_key,
+        fill_alpha=0,
+        outline_color="#ffffff",
+        outline_width=1.5,
+        outline_alpha=0.9,
+    ).pl.show(
+        coordinate_systems=sample_id,
+        ax=tissue_axis,
+        colorbar=False,
+        title="Space Ranger in-tissue bins",
+    )
+    tissue_axis.set_axis_off()
+
+    fig.subplots_adjust(left=0.01, right=0.99, top=0.94, bottom=0.01, wspace=0.05)
+    fig.savefig(output_path, dpi=100, bbox_inches="tight", pad_inches=0.03)
+    plt.close(fig)
 
 def spatial_quality_control(
     zarr_folder,
@@ -173,6 +293,13 @@ def spatial_quality_control(
     sdata.tables[resolution] = adata
     sdata.write(output_zarr)
 
+    save_registration_tissue_preview(
+        sdata,
+        sample_id,
+        resolution,
+        f"{sample_id}_registration_tissue_mqc.png",
+    )
+
     # Collect QC summary
     summary_dict = {
         "Sample": sample_id,
@@ -204,6 +331,27 @@ def spatial_quality_control(
     adata.obs["n_genes_by_counts_filtered"] = adata.obs["n_genes_by_counts"].where(valid_bins, pd.NA)
     adata.obs["pct_counts_mt_filtered"] = adata.obs["pct_counts_mt"].where(valid_bins, pd.NA)
 
+    spatial_metrics = [
+        ("Total counts", "total_counts", "total_counts_filtered", "UMI counts"),
+        (
+            "Detected genes",
+            "n_genes_by_counts",
+            "n_genes_by_counts_filtered",
+            "Genes per bin",
+        ),
+        (
+            "Mitochondrial fraction",
+            "pct_counts_mt",
+            "pct_counts_mt_filtered",
+            "Mitochondrial counts (%)",
+        ),
+    ]
+    preview_columns = {}
+    for label, metric, filtered_metric, _ in spatial_metrics:
+        preview_column = f"_spatial_qc_preview_{metric}"
+        adata.obs[preview_column] = adata.obs[metric].where(in_tissue_mask)
+        preview_columns[label] = (preview_column, filtered_metric)
+
     # Crop the spatialdata object to the visium area
     shape_key = f"{sample_id}_{resolution}"
     minx, miny, maxx, maxy = sdata[shape_key].total_bounds
@@ -215,14 +363,6 @@ def spatial_quality_control(
     )
 
     # Spatial QC plot
-    spatial_colors = [
-        "total_counts",
-        "n_genes_by_counts",
-        "pct_counts_mt",
-        "total_counts_filtered",
-        "n_genes_by_counts_filtered",
-        "pct_counts_mt_filtered"
-    ]
     with plt.rc_context({
         "font.size": 8,
         "axes.titlesize": 9,
@@ -230,45 +370,58 @@ def spatial_quality_control(
         "xtick.labelsize": 7,
         "ytick.labelsize": 7,
     }):
-        fig, axs = plt.subplots(2, 3, figsize=(14, 8), constrained_layout=False)
-        axs = axs.ravel()
+        fig, axs = plt.subplots(3, 2, figsize=(11.8, 15.5), constrained_layout=False)
+        cmap = "viridis"
 
-        for i, color in enumerate(spatial_colors):
+        for row, (label, metric, _, colorbar_label) in enumerate(spatial_metrics):
+            unfiltered_values = pd.to_numeric(
+                adata.obs[preview_columns[label][0]], errors="coerce"
+            ).dropna().to_numpy(dtype=float)
+            if unfiltered_values.size > 0:
+                vmin = np.percentile(unfiltered_values, 1)
+                vmax = np.percentile(unfiltered_values, 99)
+                if vmin == vmax:
+                    vmax = vmin + 1
+            else:
+                vmin, vmax = 0, 1
+            norm = Normalize(vmin=vmin, vmax=vmax)
 
-            sample_np = pd.to_numeric(adata.obs[color], errors="coerce").dropna().to_numpy(dtype=float)
-            render_shapes_kwargs = {
-                "color": color,
-                "cmap": "viridis",
-                "fill_alpha": 0.5,
-                "outline_width": 0,
-            }
-            if sample_np.size > 0:
-                vmin = np.percentile(sample_np, 1)
-                vmax = np.percentile(sample_np, 99)
-                render_shapes_kwargs["norm"] = Normalize(vmin=vmin, vmax=vmax)
+            for col, (column_title, color) in enumerate(zip(
+                ("In tissue · before QC", "QC pass"), preview_columns[label]
+            )):
+                axis = axs[row, col]
+                sdata_crop.pl.render_images( # pylint: disable=no-member
+                    f"{sample_id}_hires_image",
+                    cmap="gray",
+                ).pl.render_shapes(
+                    f"{sample_id}_{resolution}",
+                    color=color,
+                    cmap=cmap,
+                    norm=norm,
+                    fill_alpha=0.5,
+                    outline_width=0,
+                    na_color="#00000000",
+                    colorbar=False,
+                ).pl.show(
+                    coordinate_systems=sample_id,
+                    dpi=100,
+                    ax=axis,
+                    colorbar=False,
+                )
+                axis.set_title(f"{label} · {column_title}", fontsize=8)
+                axis.set_axis_off()
 
-            sdata_crop.pl.render_images( # pylint: disable=no-member
-                f"{sample_id}_hires_image",
-                cmap="gray",
-            ).pl.render_shapes(
-                f"{sample_id}_{resolution}",
-                **render_shapes_kwargs,
-            ).pl.show(
-                coordinate_systems=sample_id,
-                dpi=100,
-                ax=axs[i],
+            colorbar = fig.colorbar(
+                ScalarMappable(norm=norm, cmap=cmap),
+                ax=axs[row, :],
+                fraction=0.035,
+                pad=0.025,
             )
-            axs[i].set_title(color, fontsize=9)
-            axs[i].set_axis_off()
+            colorbar.set_label(colorbar_label, fontsize=7)
+            colorbar.ax.tick_params(labelsize=7)
 
-        # More space between panels
-        fig.subplots_adjust(wspace=0.15, hspace=0.15)
-
-        for a in fig.axes:
-            if a not in axs.flat:
-                a.set_ylabel("")  # clear colorbar label
-                a.set_title("")   # clear colorbar title if present
-                a.tick_params(labelsize=7)
+        fig.subplots_adjust(left=0.015, right=0.92, top=0.98, bottom=0.015,
+                            wspace=0.06, hspace=0.12)
 
         fig.savefig(
             f"{sample_id}_qc_spatial_plots.png",
@@ -276,6 +429,9 @@ def spatial_quality_control(
             bbox_inches="tight",
             pad_inches=0.05,
         )
+        plt.close(fig)
+
+    adata.obs.drop(columns=[column for column, _ in preview_columns.values()], inplace=True)
 
 def distribution_plots(adata, sample_id, min_counts, min_genes, max_mt):
     """

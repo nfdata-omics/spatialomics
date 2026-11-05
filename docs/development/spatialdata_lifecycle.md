@@ -53,7 +53,10 @@ QC-annotated SpatialData
 The canonical object at each decision point is the most advanced successful
 version available for that sample:
 
-1. `SPACERANGER_TO_ZARR` creates the raw SpatialData from Space Ranger output.
+1. `SPACERANGER_TO_ZARR` creates the raw SpatialData from Space Ranger output,
+   including the registered CytAssist image when Space Ranger provides both the
+   image and complete transformation matrices. It also preserves a compact
+   capture-area polygon derived from the complete 16 µm position grid.
 2. `SPATIAL_QUALITY_CONTROL` creates the mandatory QC-annotated version used by
    downstream analyses.
 3. `CELL2LOCATION_DECONVOLUTION` trains one joint spatial model when a single-cell
@@ -84,7 +87,9 @@ The raw uncompressed Zarr is an internal workflow object and remains available
 through the Nextflow work directory and cache. It is archived as
 `<sample>.zarr.tar.gz` and published under `count/` for completeness and
 long-term recovery. The archive is not intended as the normal downstream
-analysis interface.
+analysis interface. Registered image layers use the transformations produced by
+Space Ranger through `spatialdata_io`; the pipeline does not reconstruct image
+registration from rendered Space Ranger plots.
 
 ### Intermediate SpatialData
 
@@ -198,7 +203,8 @@ samples to reach final publication.
 
 ### Implemented
 
-- raw conversion from Space Ranger and archival publication;
+- raw conversion from Space Ranger and archival publication, including
+  conditional registered CytAssist import and compact capture-area geometry;
 - mandatory QC annotation as the downstream baseline;
 - optional Cell2location replacement of the QC version;
 - optional segmentation and microscopy augmentation with keyed fallback;

@@ -18,6 +18,7 @@ process SPATIAL_QUALITY_CONTROL {
     tuple val(meta), path("*_qc_metrics.csv"),       emit: metrics
     tuple val(meta), path("*_qc_distributions.png"), emit: distributions
     tuple val(meta), path("*_qc_mqc.png"),           emit: mqc_plot
+    tuple val(meta), path("*_registration_tissue_mqc.png"), emit: registration_plot
 
     when:
     task.ext.when == null || task.ext.when
@@ -68,6 +69,7 @@ END_SCRIPT
     touch ${prefix}_qc_metrics.csv
     touch ${prefix}_qc_distributions.png
     touch ${prefix}_qc_mqc.png
+    touch ${prefix}_registration_tissue_mqc.png
 
     python3 spatial_quality_control.py \
         --versions-dict "${task.process}" > versions.yml

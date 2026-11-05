@@ -11,9 +11,9 @@ from pathlib import Path
 
 IMAGE_SECTIONS = [
     (
-        "registration_full_slide_mqc",
-        "Registration overview",
-        "Full-slide microscopy with the registered Visium capture area.",
+        "registration_tissue_mqc",
+        "Registration and tissue detection",
+        "Registered H&E/CytAssist overlay and Space Ranger in-tissue selection.",
     ),
     (
         "qc_mqc",
@@ -21,14 +21,9 @@ IMAGE_SECTIONS = [
         "Spatial QC metrics overlaid on the microscopy image.",
     ),
     (
-        "crop_areas_downsampled_microscopy_mqc",
-        "Selected crop areas",
-        "Crop areas used for segmentation inspection, shown on the downsampled microscopy image.",
-    ),
-    (
-        "segmentation_crop_panels_mqc",
-        "Segmentation panels",
-        "Microscopy and segmentation views for the selected crop areas.",
+        "crop_segmentation_mqc",
+        "Crop location and segmentation",
+        "Each selected crop is located within the capture area and paired with its segmentation view.",
     ),
     (
         "roi_annotations_mqc",
@@ -104,6 +99,7 @@ plot_type: "html"
             f"{description_html}"
             '<figure style="margin:0;">'
             f'<img src="{data_uri}" alt="{escaped_alt}" '
+            'loading="lazy" decoding="async" '
             'style="max-width:100%;height:auto;border:1px solid #ddd;" />'
             "</figure>"
             "</section>"

@@ -341,15 +341,6 @@ def save_segmentation_statistics(row, output_path):
         writer.writerow(row)
 
 
-def crop_areas_to_shapes(crop_areas, coordinate_system):
-    """Create a SpatialData shapes model containing crop boxes."""
-    crop_gdf = gpd.GeoDataFrame(
-        {"crop": [f"crop_{i + 1}" for i in range(len(crop_areas))]},
-        geometry=[box(area.x0, area.y0, area.x1, area.y1) for area in crop_areas],
-    )
-    return ShapesModel.parse(crop_gdf, transformations={coordinate_system: Identity()})
-
-
 def add_layers(
     sdata,
     sample_name,
@@ -480,124 +471,62 @@ def save_zarr(sdata, output_zarr, overwrite):
     sdata.write(output_zarr)
 
 
-def save_registration_plot(
-    sdata,
-    sample_name,
-    square_key,
-    hires_key,
-    microscopy_downsampled_key,
-    output_path,
-):
-    """Save side-by-side full-slide registration plot."""
-    fig, axes = plt.subplots(1, 2, figsize=(14, 7))
-
-    sdata.pl.render_images(
-        hires_key,
-        cmap="gray",
-    ).pl.render_shapes(
-        square_key,
-        color="#00000000",
-        fill_alpha=0,
-        outline_color="yellow",
-        outline_width=0.01,
-        outline_alpha=0.4,
-    ).pl.show(
-        coordinate_systems=sample_name,
-        ax=axes[0],
-        title="CytAssist image",
-    )
-
-    sdata.pl.render_images(
-        microscopy_downsampled_key,
-        cmap="gray",
-    ).pl.render_shapes(
-        square_key,
-        color="#00000000",
-        fill_alpha=0,
-        outline_color="yellow",
-        outline_width=0.01,
-        outline_alpha=0.4,
-    ).pl.show(
-        coordinate_systems=sample_name,
-        ax=axes[1],
-        title="microscopy image",
-    )
-
-    fig.tight_layout()
-    fig.savefig(output_path, dpi=200)
-    plt.close(fig)
-
-
-def save_crop_area_plot(
-    sdata,
-    sample_name,
-    crop_shape_key,
-    microscopy_downsampled_key,
-    visium_area,
-    output_path,
-):
-    """Save downsampled microscopy plot with crop-area overlays."""
-    min_coordinate, max_coordinate = visium_area.bounds_for_query
-    visium_crop = sd.bounding_box_query(
-        sdata,
-        axes=("y", "x"),
-        min_coordinate=min_coordinate,
-        max_coordinate=max_coordinate,
-        target_coordinate_system=sample_name,
-    )
-
-    fig, axes = plt.subplots(1, 2, figsize=(14, 7))
-
-    sdata.pl.render_images(
-        microscopy_downsampled_key,
-        cmap="gray",
-    ).pl.render_shapes(
-        crop_shape_key,
-        fill_alpha=0,
-        outline_color="red",
-        outline_width=2,
-        outline_alpha=1,
-    ).pl.show(
-        coordinate_systems=sample_name,
-        ax=axes[0],
-        title="Full Slide",
-    )
-
-    visium_crop.pl.render_images(
-        microscopy_downsampled_key,
-        cmap="gray",
-    ).pl.render_shapes(
-        crop_shape_key,
-        fill_alpha=0,
-        outline_color="red",
-        outline_width=2,
-        outline_alpha=1,
-    ).pl.show(
-        coordinate_systems=sample_name,
-        ax=axes[1],
-        title="Visium Area",
-    )
-
-    fig.tight_layout(rect=(0, 0, 1, 0.95), w_pad=3.0)
-    fig.savefig(output_path, dpi=200)
-    plt.close(fig)
-
-
-def save_segmentation_crop_panels(
+def save_crop_segmentation_review(
     sdata,
     sample_name,
     crop_areas,
+    capture_area,
     microscopy_key,
+    microscopy_downsampled_key,
     segmentation_key,
     output_path,
 ):
-    """Save high-resolution crop panels with and without segmentation overlay."""
+    """Save one location/segmentation row for every requested crop area."""
     n_crops = len(crop_areas)
-    fig_height = max(5, 4 * n_crops)
-    fig, axes = plt.subplots(n_crops, 2, figsize=(12, fig_height), squeeze=False)
-    panel_title_fontsize = 8
+    fig, axes = plt.subplots(
+        n_crops,
+        2,
+        figsize=(12, max(4, 4 * n_crops)),
+        squeeze=False,
+    )
+
+    capture_min, capture_max = capture_area.bounds_for_query
+    capture_sdata = sd.bounding_box_query(
+        sdata,
+        axes=("y", "x"),
+        min_coordinate=capture_min,
+        max_coordinate=capture_max,
+        target_coordinate_system=sample_name,
+    )
 
     for index, crop_area in enumerate(crop_areas):
+        selected_crop_key = "selected_crop_for_plotting"
+        capture_sdata.shapes[selected_crop_key] = ShapesModel.parse(
+            gpd.GeoDataFrame(
+                geometry=[box(crop_area.x0, crop_area.y0, crop_area.x1, crop_area.y1)]
+            ),
+            transformations={sample_name: Identity()},
+        )
+        capture_sdata.pl.render_images(
+            microscopy_downsampled_key,
+            cmap="gray",
+            colorbar=False,
+        ).pl.render_shapes(
+            selected_crop_key,
+            color="#ff1744",
+            fill_alpha=0,
+            outline_width=2,
+            outline_alpha=1,
+            colorbar=False,
+        ).pl.show(
+            coordinate_systems=sample_name,
+            ax=axes[index, 0],
+            colorbar=False,
+            legend_loc=None,
+            title=f"Crop {index + 1} — location",
+        )
+        axes[index, 0].set_axis_off()
+
         min_coordinate, max_coordinate = crop_area.bounds_for_query
         crop_sdata = sd.bounding_box_query(
             sdata,
@@ -607,39 +536,26 @@ def save_segmentation_crop_panels(
             target_coordinate_system=sample_name,
         )
 
-        crop_label = (
-            f"Crop {index + 1}: "
-            f"{crop_area.x0:g}:{crop_area.y0:g}:{crop_area.x1:g}:{crop_area.y1:g}"
-        )
-
         crop_sdata.pl.render_images(
             microscopy_key,
             cmap="gray",
-        ).pl.show(
-            coordinate_systems=sample_name,
-            ax=axes[index, 0],
-            title=f"{crop_label} - microscopy",
-        )
-        axes[index, 0].set_title(axes[index, 0].get_title(), fontsize=panel_title_fontsize)
-
-        crop_sdata.pl.render_images(
-            microscopy_key,
-            cmap="gray",
+            colorbar=False,
         ).pl.render_labels(
             segmentation_key,
             fill_alpha=0,
             outline_alpha=1,
-            outline_color="red",
-            na_color="red",
+            outline_color="#ff1744",
+            na_color="#ff1744",
         ).pl.show(
             coordinate_systems=sample_name,
             ax=axes[index, 1],
-            title=f"{crop_label} - segmentation",
+            colorbar=False,
+            title=f"Crop {index + 1} — segmentation",
         )
-        axes[index, 1].set_title(axes[index, 1].get_title(), fontsize=panel_title_fontsize)
+        axes[index, 1].set_axis_off()
 
-    fig.tight_layout(rect=(0, 0, 1, 0.96))
-    fig.savefig(output_path, dpi=300)
+    fig.subplots_adjust(left=0.01, right=0.99, top=0.97, bottom=0.01, wspace=0.05, hspace=0.12)
+    fig.savefig(output_path, dpi=100, bbox_inches="tight", pad_inches=0.03)
     plt.close(fig)
 
 
@@ -652,53 +568,29 @@ def save_result_plots(
     microscopy_downsampled_key,
     results_dir,
 ):
-    """Save all result PNG plots."""
-    square_key = f"{sample_name}_square_016um"
-    hires_key = f"{sample_name}_hires_image"
+    """Save the combined crop-location and segmentation-review preview."""
+    capture_key = f"{sample_name}_capture_area"
 
-    for key in [square_key, hires_key]:
-        if key not in sdata:
-            raise ValueError(f"Required SpatialData element '{key}' not found")
+    if capture_key not in sdata:
+        raise ValueError(f"Required SpatialData element '{capture_key}' not found")
 
-    visium_area = visium_bounds(sdata, square_key)
+    minx, miny, maxx, maxy = sdata.shapes[capture_key].total_bounds
+    capture_area = CropArea(x0=minx, y0=miny, x1=maxx, y1=maxy)
     if crop_areas is None:
-        crop_areas = [visium_area]
+        crop_areas = [capture_area]
 
     results_dir.mkdir(parents=True, exist_ok=True)
 
-    crop_shape_key = "crop_areas_for_plotting"
-    if crop_shape_key in sdata.shapes:
-        del sdata.shapes[crop_shape_key]
-    sdata.shapes[crop_shape_key] = crop_areas_to_shapes(crop_areas, sample_name)
-
-    try:
-        save_registration_plot(
-            sdata,
-            sample_name,
-            square_key,
-            hires_key,
-            microscopy_downsampled_key,
-            results_dir / f"{sample_name}_registration_full_slide_mqc.png",
-        )
-        save_crop_area_plot(
-            sdata,
-            sample_name,
-            crop_shape_key,
-            microscopy_downsampled_key,
-            visium_area,
-            results_dir / f"{sample_name}_crop_areas_downsampled_microscopy_mqc.png",
-        )
-        save_segmentation_crop_panels(
-            sdata,
-            sample_name,
-            crop_areas,
-            microscopy_key,
-            segmentation_key,
-            results_dir / f"{sample_name}_segmentation_crop_panels_mqc.png",
-        )
-    finally:
-        if crop_shape_key in sdata.shapes:
-            del sdata.shapes[crop_shape_key]
+    save_crop_segmentation_review(
+        sdata,
+        sample_name,
+        crop_areas,
+        capture_area,
+        microscopy_key,
+        microscopy_downsampled_key,
+        segmentation_key,
+        results_dir / f"{sample_name}_crop_segmentation_mqc.png",
+    )
 
 
 def run(args):

@@ -411,9 +411,8 @@ workflow SPATIALOMICS {
     //
 
     SPATIAL_QUALITY_CONTROL.out.mqc_plot
-        .mix(SPATIALDATA_AUGMENT_WITH_SEGMENTATION.out.registration_plot)
-        .mix(SPATIALDATA_AUGMENT_WITH_SEGMENTATION.out.crop_areas_plot)
-        .mix(SPATIALDATA_AUGMENT_WITH_SEGMENTATION.out.segmentation_crop_panels_plot)
+        .mix(SPATIAL_QUALITY_CONTROL.out.registration_plot)
+        .mix(SPATIALDATA_AUGMENT_WITH_SEGMENTATION.out.crop_segmentation_plot)
         .mix(IMPORT_ROI_ANNOTATIONS.out.roi_plot)
         .mix(ch_deconvolution_multiqc_plots)
         .map { meta, plot -> [meta.id, meta, plot] }

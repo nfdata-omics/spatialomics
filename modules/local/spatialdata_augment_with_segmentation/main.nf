@@ -13,9 +13,7 @@ process SPATIALDATA_AUGMENT_WITH_SEGMENTATION {
 
     output:
     tuple val(meta), path("*_segmentation_microscopy.zarr"), optional: true, emit: zarr
-    tuple val(meta), path("*_registration_full_slide_mqc.png"), emit: registration_plot
-    tuple val(meta), path("*_crop_areas_downsampled_microscopy_mqc.png"), emit: crop_areas_plot
-    tuple val(meta), path("*_segmentation_crop_panels_mqc.png"), emit: segmentation_crop_panels_plot
+    tuple val(meta), path("*_crop_segmentation_mqc.png"), emit: crop_segmentation_plot
     tuple val(meta), path("*_segmentation_stats.csv"), emit: segmentation_stats
     tuple val("${task.process}"), val('container'), val('docker.io/nfdata/spatialdata:v0.7.2'), emit: versions_container, topic: versions
 
@@ -59,9 +57,7 @@ END_SCRIPT
     def save_zarr = task.ext.save_zarr
     """
     mkdir -p ${save_zarr ? "${prefix}_segmentation_microscopy.zarr" : "stub_no_zarr"}
-    touch ${prefix}_registration_full_slide_mqc.png
-    touch ${prefix}_crop_areas_downsampled_microscopy_mqc.png
-    touch ${prefix}_segmentation_crop_panels_mqc.png
+    touch ${prefix}_crop_segmentation_mqc.png
     touch ${prefix}_segmentation_stats.csv
 
     """
