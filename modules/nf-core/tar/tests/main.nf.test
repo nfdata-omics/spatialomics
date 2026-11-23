@@ -8,39 +8,30 @@ nextflow_process {
     tag "modules"
     tag "modules_nfcore"
     tag "tar"
-    tag "untar"
-
-    setup {
-        run("UNTAR") {
-            script "../../untar/main.nf"
-            process {
-            """
-            input[0] = [
-                        [ id:'test' ], // meta map
-                        file(params.modules_testdata_base_path + 'genomics/sarscov2/genome/db/kraken2.tar.gz', checkIfExists: true)
-            ]
-            """
-            }
-        }
-    }
 
     test("sarscov2 - genome - db - kraken2 - none") {
+
+        def db
+        setup {
+            // params.modules_testdata_base_path is null outside the process string, so use the same env var and default as tests/config/nf-test.config
+            def modules_testdata_base_path = System.getenv('NXF_MODULES_TESTDATA_BASE') ?: 'https://raw.githubusercontent.com/nf-core/test-datasets/modules/data/'
+            db = extract(modules_testdata_base_path + 'genomics/sarscov2/genome/db/kraken2.tar.gz').resolve('kraken2')
+        }
 
         when {
             process {
                 """
-                input[0] = UNTAR.out.untar
+                input[0] = [ [ id:'test' ], file('${db}') ]
                 input[1] = ''
                 """
             }
         }
 
         then {
+            assert process.success
             assertAll(
-                { assert process.success },
                 { assert snapshot(
-                    file(process.out.archive[0][1]).name,
-                    process.out.versions
+                    sanitizeOutput(process.out, unstableKeys: ['archive'])
                 ).match() }
             )
         }
@@ -49,21 +40,27 @@ nextflow_process {
 
     test("sarscov2 - genome - db - kraken2 - .gz") {
 
+        def db
+        setup {
+            // params.modules_testdata_base_path is null outside the process string, so use the same env var and default as tests/config/nf-test.config
+            def modules_testdata_base_path = System.getenv('NXF_MODULES_TESTDATA_BASE') ?: 'https://raw.githubusercontent.com/nf-core/test-datasets/modules/data/'
+            db = extract(modules_testdata_base_path + 'genomics/sarscov2/genome/db/kraken2.tar.gz').resolve('kraken2')
+        }
+
         when {
             process {
                 """
-                input[0] = UNTAR.out.untar
+                input[0] = [ [ id:'test' ], file('${db}') ]
                 input[1] = '.gz'
                 """
             }
         }
 
         then {
+            assert process.success
             assertAll(
-                { assert process.success },
                 { assert snapshot(
-                    file(process.out.archive[0][1]).name,
-                    process.out.versions
+                    sanitizeOutput(process.out, unstableKeys: ['archive'])
                 ).match() }
             )
         }
@@ -72,21 +69,27 @@ nextflow_process {
 
     test("sarscov2 - genome - db - kraken2 - .bz2") {
 
+        def db
+        setup {
+            // params.modules_testdata_base_path is null outside the process string, so use the same env var and default as tests/config/nf-test.config
+            def modules_testdata_base_path = System.getenv('NXF_MODULES_TESTDATA_BASE') ?: 'https://raw.githubusercontent.com/nf-core/test-datasets/modules/data/'
+            db = extract(modules_testdata_base_path + 'genomics/sarscov2/genome/db/kraken2.tar.gz').resolve('kraken2')
+        }
+
         when {
             process {
                 """
-                input[0] = UNTAR.out.untar
+                input[0] = [ [ id:'test' ], file('${db}') ]
                 input[1] = '.bz2'
                 """
             }
         }
 
         then {
+            assert process.success
             assertAll(
-                { assert process.success },
                 { assert snapshot(
-                    file(process.out.archive[0][1]).name,
-                    process.out.versions
+                    sanitizeOutput(process.out, unstableKeys: ['archive'])
                 ).match() }
             )
         }
@@ -95,21 +98,27 @@ nextflow_process {
 
     test("sarscov2 - genome - db - kraken2 - .lzip") {
 
+        def db
+        setup {
+            // params.modules_testdata_base_path is null outside the process string, so use the same env var and default as tests/config/nf-test.config
+            def modules_testdata_base_path = System.getenv('NXF_MODULES_TESTDATA_BASE') ?: 'https://raw.githubusercontent.com/nf-core/test-datasets/modules/data/'
+            db = extract(modules_testdata_base_path + 'genomics/sarscov2/genome/db/kraken2.tar.gz').resolve('kraken2')
+        }
+
         when {
             process {
                 """
-                input[0] = UNTAR.out.untar
+                input[0] = [ [ id:'test' ], file('${db}') ]
                 input[1] = '.lz'
                 """
             }
         }
 
         then {
+            assert process.success
             assertAll(
-                { assert process.success },
                 { assert snapshot(
-                    file(process.out.archive[0][1]).name,
-                    process.out.versions
+                    sanitizeOutput(process.out, unstableKeys: ['archive'])
                 ).match() }
             )
         }
@@ -118,21 +127,27 @@ nextflow_process {
 
     test("sarscov2 - genome - db - kraken2 - .lzma") {
 
+        def db
+        setup {
+            // params.modules_testdata_base_path is null outside the process string, so use the same env var and default as tests/config/nf-test.config
+            def modules_testdata_base_path = System.getenv('NXF_MODULES_TESTDATA_BASE') ?: 'https://raw.githubusercontent.com/nf-core/test-datasets/modules/data/'
+            db = extract(modules_testdata_base_path + 'genomics/sarscov2/genome/db/kraken2.tar.gz').resolve('kraken2')
+        }
+
         when {
             process {
                 """
-                input[0] = UNTAR.out.untar
+                input[0] = [ [ id:'test' ], file('${db}') ]
                 input[1] = '.lzma'
                 """
             }
         }
 
         then {
+            assert process.success
             assertAll(
-                { assert process.success },
                 { assert snapshot(
-                    file(process.out.archive[0][1]).name,
-                    process.out.versions
+                    sanitizeOutput(process.out, unstableKeys: ['archive'])
                 ).match() }
             )
         }
@@ -141,21 +156,27 @@ nextflow_process {
 
     test("sarscov2 - genome - db - kraken2 - .lzo") {
 
+        def db
+        setup {
+            // params.modules_testdata_base_path is null outside the process string, so use the same env var and default as tests/config/nf-test.config
+            def modules_testdata_base_path = System.getenv('NXF_MODULES_TESTDATA_BASE') ?: 'https://raw.githubusercontent.com/nf-core/test-datasets/modules/data/'
+            db = extract(modules_testdata_base_path + 'genomics/sarscov2/genome/db/kraken2.tar.gz').resolve('kraken2')
+        }
+
         when {
             process {
                 """
-                input[0] = UNTAR.out.untar
+                input[0] = [ [ id:'test' ], file('${db}') ]
                 input[1] = '.lzo'
                 """
             }
         }
 
         then {
+            assert process.success
             assertAll(
-                { assert process.success },
                 { assert snapshot(
-                    file(process.out.archive[0][1]).name,
-                    process.out.versions
+                    sanitizeOutput(process.out, unstableKeys: ['archive'])
                 ).match() }
             )
         }
@@ -164,21 +185,27 @@ nextflow_process {
 
     test("sarscov2 - genome - db - kraken2 - .zst") {
 
+        def db
+        setup {
+            // params.modules_testdata_base_path is null outside the process string, so use the same env var and default as tests/config/nf-test.config
+            def modules_testdata_base_path = System.getenv('NXF_MODULES_TESTDATA_BASE') ?: 'https://raw.githubusercontent.com/nf-core/test-datasets/modules/data/'
+            db = extract(modules_testdata_base_path + 'genomics/sarscov2/genome/db/kraken2.tar.gz').resolve('kraken2')
+        }
+
         when {
             process {
                 """
-                input[0] = UNTAR.out.untar
+                input[0] = [ [ id:'test' ], file('${db}') ]
                 input[1] = '.zst'
                 """
             }
         }
 
         then {
+            assert process.success
             assertAll(
-                { assert process.success },
                 { assert snapshot(
-                    file(process.out.archive[0][1]).name,
-                    process.out.versions
+                    sanitizeOutput(process.out, unstableKeys: ['archive'])
                 ).match() }
             )
         }
@@ -192,16 +219,16 @@ nextflow_process {
         when {
             process {
                 """
-                input[0] = UNTAR.out.untar
+                input[0] = [ [ id:'test' ], [] ]
                 input[1] = '.gz'
                 """
             }
         }
 
         then {
+            assert process.success
             assertAll(
-                { assert process.success },
-                { assert snapshot(process.out).match() }
+                { assert snapshot(sanitizeOutput(process.out)).match() }
             )
         }
 

@@ -3,7 +3,12 @@ Changes in component 'nf-core/spaceranger/count'
 Changes in 'spaceranger/count/main.nf':
 --- modules/nf-core/spaceranger/count/main.nf
 +++ modules/nf-core/spaceranger/count/main.nf
-@@ -5,12 +5,14 @@
+@@ -1,16 +1,18 @@
+ process SPACERANGER_COUNT {
+     tag "$meta.id"
+-    label 'process_high'
++    label 'process_high', 'process_high_memory'
+ 
      container "nf-core/spaceranger:3.1.3"
  
      input:
