@@ -119,20 +119,32 @@ workflow PIPELINE_INITIALISATION {
 
     channel
         .fromList(samplesheet_list)
-        .filter { _meta, _fastq_1, _fastq_2, _spaceranger, roi_annotations -> roi_annotations }
         .map { meta, _fastq_1, _fastq_2, _spaceranger, roi_annotations ->
-            [meta.id, roi_annotations]
+            [meta.id, meta.subMap(['slide', 'area']), roi_annotations]
         }
         .groupTuple()
-        .map { sample_id, annotations ->
-            def unique_annotations = annotations.unique()
+        .map { sample_id, metas, annotations ->
+            def unique_annotations = annotations.findAll { path -> path }.unique()
+            if (!unique_annotations) {
+                return null
+            }
             if (unique_annotations.size() > 1) {
                 error(
                     "Please check input samplesheet -> Multiple rows for sample '${sample_id}' " +
                     "have different roi_annotations values: ${unique_annotations.join(', ')}"
                 )
             }
-            [[id: sample_id], unique_annotations.first()]
+            def sample_meta = [id: sample_id]
+            ['slide', 'area'].each { key ->
+                def values = metas.collect { meta -> meta[key] }.findAll { value -> value }.unique()
+                if (values.size() > 1) {
+                    error "Please check input samplesheet -> Multiple rows for sample '${sample_id}' have different ${key} values: ${values.join(', ')}"
+                }
+                if (values) {
+                    sample_meta[key] = values.first()
+                }
+            }
+            [sample_meta, unique_annotations.first()]
         }
         .set { ch_roi_annotations }
 

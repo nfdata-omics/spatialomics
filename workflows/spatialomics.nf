@@ -20,6 +20,8 @@ include { CZI_TO_SPACERANGER_TIFF     } from '../modules/local/czi_to_spacerange
 include { PREPARE_SEGMENTATION_IMAGE  } from '../modules/local/prepare_segmentation_image/main'
 include { EXTRACT_VISIUM_REGION       } from '../modules/local/extract_visium_region/main'
 include { IMPORT_ROI_ANNOTATIONS      } from '../modules/local/import_roi_annotations/main'
+include { ROI_PSEUDOBULK             } from '../modules/local/roi_pseudobulk/aggregate/main'
+include { COMBINE_ROI_PSEUDOBULK     } from '../modules/local/roi_pseudobulk/combine/main'
 include { CELLPOSE_SEGMENTATION       } from '../modules/local/cellpose_segmentation/main'
 include { SKIMAGE_WATERSHED_SEGMENTATION } from '../modules/local/skimage_watershed_segmentation/main'
 include { SPATIALDATA_AUGMENT_WITH_SEGMENTATION } from '../modules/local/spatialdata_augment_with_segmentation/main'
@@ -268,9 +270,9 @@ workflow SPATIALOMICS {
             CELL2LOCATION_PLOTS.out.summary_mqc.map { _meta, path -> path }
         )
 
-        ch_zarr_before_segmentation = ch_cell2location_zarr
+        ch_analysis_zarr = ch_cell2location_zarr
     } else {
-        ch_zarr_before_segmentation = SPATIAL_QUALITY_CONTROL.out.zarr
+        ch_analysis_zarr = SPATIAL_QUALITY_CONTROL.out.zarr
     }
 
     //
@@ -292,6 +294,38 @@ workflow SPATIALOMICS {
         params.capture_area_image_downsample_factor
     )
     ch_versions = ch_versions.mix(EXTRACT_VISIUM_REGION.out.versions.first())
+
+    // Import optional ROI annotations without adding their paths to the shared sample metadata.
+    ch_analysis_zarr
+        .map { meta, zarr -> [meta.id, meta, zarr] }
+        .join(ch_roi_annotations.map { meta, annotations -> [meta.id, meta, annotations] })
+        .join(EXTRACT_VISIUM_REGION.out.bounds.map { meta, bounds -> [meta.id, bounds] })
+        .join(EXTRACT_VISIUM_REGION.out.crop.map { meta, crop -> [meta.id, crop] })
+        .map { _id, meta, zarr, annotation_meta, annotations, bounds, crop ->
+            [meta + annotation_meta, zarr, annotations, bounds, crop]
+        }
+        .set { ch_import_roi_annotations_inputs }
+
+    IMPORT_ROI_ANNOTATIONS (
+        ch_import_roi_annotations_inputs
+    )
+
+    ROI_PSEUDOBULK(
+        IMPORT_ROI_ANNOTATIONS.out.zarr,
+        params.roi_pseudobulk_bin_size
+    )
+    COMBINE_ROI_PSEUDOBULK(ROI_PSEUDOBULK.out.h5ad.collect { _meta, h5ad -> h5ad })
+
+    ch_analysis_zarr
+        .map { meta, zarr -> [meta.id, meta, zarr] }
+        .join(
+            IMPORT_ROI_ANNOTATIONS.out.zarr.map { meta, zarr -> [meta.id, zarr] },
+            remainder: true
+        )
+        .map { _id, meta, input_zarr, annotated_zarr = null ->
+            [meta, annotated_zarr ?: input_zarr]
+        }
+        .set { ch_zarr_before_microscopy }
 
     // Prepare segmentation-specific inputs unless segmentation is being skipped.
     if ( params.skip_segmentation ) {
@@ -349,7 +383,7 @@ workflow SPATIALOMICS {
     // MODULE: Augment SpatialData with segmentation and microscopy layers
     //
 
-    ch_zarr_before_segmentation
+    ch_zarr_before_microscopy
         .map { meta, zarr -> [["id": meta.id], zarr] }
         .join(ch_segmentation_masks)
         .join(ch_segmentation_source_images)
@@ -364,8 +398,8 @@ workflow SPATIALOMICS {
     )
 
     // Select the most advanced SpatialData available for every sample. Samples
-    // without segmentation retain the QC or Cell2location Zarr selected above.
-    ch_zarr_before_segmentation
+    // without microscopy augmentation retain the selected upstream Zarr.
+    ch_zarr_before_microscopy
         .map { meta, zarr -> [meta.id, meta, zarr] }
         .join(
             SPATIALDATA_AUGMENT_WITH_SEGMENTATION.out.zarr
@@ -376,32 +410,6 @@ workflow SPATIALOMICS {
             [meta, augmented_zarr ?: input_zarr]
         }
         .set { ch_final_zarr }
-
-    // Import optional ROI annotations without adding their paths to the shared sample metadata.
-    ch_final_zarr
-        .map { meta, zarr -> [meta.id, meta, zarr] }
-        .join(ch_roi_annotations.map { meta, annotations -> [meta.id, annotations] })
-        .join(EXTRACT_VISIUM_REGION.out.bounds.map { meta, bounds -> [meta.id, bounds] })
-        .join(EXTRACT_VISIUM_REGION.out.crop.map { meta, crop -> [meta.id, crop] })
-        .map { _id, meta, zarr, annotations, bounds, crop ->
-            [meta, zarr, annotations, bounds, crop]
-        }
-        .set { ch_import_roi_annotations_inputs }
-
-    IMPORT_ROI_ANNOTATIONS (
-        ch_import_roi_annotations_inputs
-    )
-
-    ch_final_zarr
-        .map { meta, zarr -> [meta.id, meta, zarr] }
-        .join(
-            IMPORT_ROI_ANNOTATIONS.out.zarr.map { meta, zarr -> [meta.id, zarr] },
-            remainder: true
-        )
-        .map { _id, meta, input_zarr, annotated_zarr = null ->
-            [meta, annotated_zarr ?: input_zarr]
-        }
-        .set { ch_final_zarr_with_roi_annotations }
 
     //
     // MODULE: Assemble the available per-sample spatial plots for MultiQC
@@ -503,7 +511,8 @@ workflow SPATIALOMICS {
     )
     emit:
     multiqc_report    = MULTIQC.out.report.map { _meta, report -> [report] }.toList() // channel: /path/to/multiqc_report.html
-    final_spatialdata = ch_final_zarr_with_roi_annotations                           // channel: [ val(meta), path(zarr) ]
+    final_spatialdata = ch_final_zarr                           // channel: [ val(meta), path(zarr) ]
+    roi_pseudobulk    = ROI_PSEUDOBULK.out.h5ad.map { _meta, h5ad -> h5ad }.mix(COMBINE_ROI_PSEUDOBULK.out.h5ad)
     versions          = ch_versions                                                   // channel: [ path(versions.yml) ]
 }
 

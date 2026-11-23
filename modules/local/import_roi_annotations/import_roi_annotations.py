@@ -54,8 +54,9 @@ def read_bounds(path):
     if missing:
         raise ValueError(f"Missing bounds columns in {path}: {', '.join(sorted(missing))}")
     bounds = {key: float(rows[0][key]) for key in REQUIRED_BOUNDS}
-    if bounds["zarr_downsample_factor"] <= 0:
-        raise ValueError("zarr_downsample_factor must be greater than zero")
+    factor = bounds["zarr_downsample_factor"]
+    if not np.isfinite(factor) or factor <= 0:
+        raise ValueError("zarr_downsample_factor must be finite and greater than zero")
     return bounds
 
 
@@ -65,10 +66,16 @@ def json_property(value):
     return json.dumps(value, sort_keys=True, separators=(",", ":"))
 
 
-def read_annotations(path):
+def read_annotations(path, sample_id):
     payload = json.loads(path.read_text(encoding="utf-8"))
     if payload.get("type") != "FeatureCollection":
         raise ValueError("ROI annotations must be a GeoJSON FeatureCollection")
+
+    sample_metadata = payload.get("sample_metadata")
+    if "sample_metadata" in payload and not isinstance(sample_metadata, dict):
+        raise ValueError(f"Sample {sample_id!r}: sample_metadata in {path} must be a JSON object")
+    if sample_metadata and "sample_id" in sample_metadata and sample_metadata["sample_id"] != sample_id:
+        raise ValueError(f"Sample {sample_id!r}: sample_metadata.sample_id in {path} disagrees with the samplesheet")
 
     records = []
     geometries = []
@@ -89,8 +96,10 @@ def read_annotations(path):
 
         properties = dict(feature.get("properties") or {})
         classification = properties.get("classification")
+        properties["classification_name"] = None
         if isinstance(classification, dict):
-            properties["classification_name"] = classification.get("name")
+            names = classification.get("names")
+            properties["classification_name"] = ": ".join(names) if names else classification.get("name")
             color = classification.get("color")
             if isinstance(color, list) and len(color) >= 3:
                 properties["classification_color"] = "#{:02x}{:02x}{:02x}".format(
@@ -103,7 +112,11 @@ def read_annotations(path):
 
     if not geometries:
         raise ValueError(f"No polygon ROI annotations found in {path}")
-    return gpd.GeoDataFrame(records, geometry=geometries, crs=None)
+    annotations = gpd.GeoDataFrame(records, geometry=geometries, crs=None)
+    if annotations["roi_id"].duplicated().any():
+        duplicates = annotations.loc[annotations["roi_id"].duplicated(), "roi_id"].unique()
+        raise ValueError(f"Sample {sample_id!r}: duplicate ROI IDs in {path}: {', '.join(duplicates[:5])}")
+    return annotations, sample_metadata
 
 
 def transform_annotations(annotations, bounds):
@@ -214,7 +227,7 @@ def save_plot(annotations, image_path, output_path):
 
 def run(args):
     bounds = read_bounds(args.bounds)
-    local_annotations = read_annotations(args.roi_annotations)
+    local_annotations, sample_metadata = read_annotations(args.roi_annotations, args.sample_id or args.sample_name)
     minx, miny, maxx, maxy = local_annotations.total_bounds
     if minx < 0 or miny < 0 or maxx > bounds["output_width"] or maxy > bounds["output_height"]:
         print(
@@ -236,6 +249,9 @@ def run(args):
         annotations,
         transformations={args.sample_name: Identity()},
     )
+    sdata.attrs["roi_zarr_downsample_factor"] = bounds["zarr_downsample_factor"]
+    if sample_metadata is not None:
+        sdata.attrs["roi_sample_metadata"] = sample_metadata
 
     if args.output_zarr.exists():
         if args.output_zarr.is_dir():
@@ -250,6 +266,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input-zarr", required=True, type=Path)
     parser.add_argument("--sample-name", required=True)
+    parser.add_argument("--sample-id")
     parser.add_argument("--roi-annotations", required=True, type=Path)
     parser.add_argument("--bounds", required=True, type=Path)
     parser.add_argument("--capture-area-image", required=True, type=Path)

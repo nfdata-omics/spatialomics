@@ -41,10 +41,10 @@ QC-annotated SpatialData
         |              |
         +--------------+
                        v
-        segmentation and microscopy augmentation, when available
+        ROI annotation augmentation, when supplied
                        |
                        v
-        ROI annotation augmentation, when supplied
+        segmentation and microscopy augmentation, when available
                        |
                        v
         final published SpatialData directory
@@ -63,12 +63,12 @@ version available for that sample:
    reference is supplied, and `CELL2LOCATION_REINSERT` creates the deconvolved
    per-sample SpatialData versions. Without a reference, the QC versions continue
    unchanged.
-4. `SPATIALDATA_AUGMENT_WITH_SEGMENTATION` replaces the preceding version for
+4. `IMPORT_ROI_ANNOTATIONS` augments the QC or Cell2location version for
+   samples with a matching GeoJSON, capture-area crop and coordinate TSV.
+   Unannotated samples retain the preceding version.
+5. `SPATIALDATA_AUGMENT_WITH_SEGMENTATION` replaces the preceding version for
    samples with the required segmentation inputs. Other samples retain the
    preceding version through a keyed join with `remainder: true`.
-5. `IMPORT_ROI_ANNOTATIONS` replaces that version for samples with a matching
-   GeoJSON, capture-area crop and coordinate TSV. Unannotated samples retain the
-   preceding version.
 6. The workflow publishes exactly the selected final version.
 
 Optional branches are associated by sample ID. Channel emission order must
@@ -78,6 +78,11 @@ never be used to associate SpatialData versions with samples.
 original Visium geometry and runs independently of downstream analytical
 branches. `BIN2CELL` currently produces separate cell-level outputs and does not
 modify the final SpatialData lineage.
+
+ROI aggregation reads the annotated SpatialData before microscopy augmentation.
+The segmentation backend produces masks independently of ROI import and
+pseudobulk. Only the final augmentation consumes both the selected Zarr and
+the segmentation products.
 
 ## Storage and publication contract
 

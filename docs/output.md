@@ -15,6 +15,7 @@ The pipeline is built using [Nextflow](https://www.nextflow.io/) and processes d
 - [Raw SpatialData archive](#raw-spatialdata-archive) - SpatialData generated directly from Space Ranger output
 - [Cell2location deconvolution](#cell2location-deconvolution) - Joint-model diagnostics, posterior tables, and per-sample spatial plots
 - [Final SpatialData](#final-spatialdata) - Analysis-ready SpatialData selected from the most advanced completed workflow branch
+- [ROI pseudobulk](#roi-pseudobulk) - Gene-expression counts summed per annotated ROI
 - [FastQC](#fastqc) - Raw read QC
 - [MultiQC](#multiqc) - Aggregate report describing results and QC from the whole pipeline
 - [Pipeline information](#pipeline-information) - Report metrics generated during the workflow execution
@@ -80,6 +81,25 @@ import spatialdata as sd
 
 sdata = sd.read_zarr("results/spatialdata/SAMPLE_spatialdata.zarr")
 ```
+
+### ROI pseudobulk
+
+The combined dataset is published in `pseudobulk/`. It includes all annotated samples and aligns columns by Space Ranger gene ID. The combined step requires identical gene ID sets.
+
+- `roi_pseudobulk.h5ad` contains the combined AnnData dataset, including provenance in `uns`.
+- `roi_pseudobulk_counts.tsv.gz` contains the same integer UMI counts as `X`, with one row per ROI, one column per gene and an `obs_id` column.
+- `roi_pseudobulk_rois.tsv` contains the `obs` annotations, including `sample_id` and `roi_id`. Join it to the count matrix by `obs_id`.
+- `roi_pseudobulk_genes.tsv` contains the `var` annotations. Its `gene_id` values match the count matrix column names and `gene_symbol` provides the corresponding labels.
+
+The TSVs retain the row and gene order of the H5AD. Missing annotations are written as empty fields.
+
+The sparse AnnData matrix contains integer UMI sums from bins retained by Space Ranger whose centres are covered by each ROI. The sums use the original counts in the SpatialData table regardless of the pipeline's `qc_pass` flag. The default resolution is 2 µm. To use the 8 µm table, pass `--roi_pseudobulk_bin_size square_008um`. The selected resolution and source table are recorded in `uns`. With coarser bins, the centre determines whether a bin that straddles a ROI boundary contributes all its counts to that ROI.
+
+Overlapping ROIs count their shared bins independently. The observation annotations report included bins, shared bins, total UMIs, classification, and available sample covariates. ROIs without measured bins have zero counts and `roi_status = no_bins`.
+
+QuPath image metadata supplied as a top-level `sample_metadata` object in the ROI GeoJSON is stored in the annotated SpatialData and exposed in AnnData as `sample_metadata.<key>` columns. Numeric, Boolean, and structured metadata values are represented as JSON text in AnnData. Missing values remain missing. Column names encode `%` and `/` as `%25` and `%2F`, respectively.
+
+[ROI pseudobulk specification](development/roi_pseudobulk.md)
 
 ### FastQC
 

@@ -29,6 +29,7 @@ END_SCRIPT
     python3 import_roi_annotations.py \
         --input-zarr "${zarr_folder}" \
         --sample-name "${prefix}" \
+        --sample-id "${meta.id}" \
         --roi-annotations "${roi_annotations}" \
         --bounds "${bounds}" \
         --capture-area-image "${capture_area_image}" \

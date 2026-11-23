@@ -7,7 +7,7 @@ area:
 
 1. export a downsampled H&E crop and its coordinate contract;
 2. annotate that image with an external application and export GeoJSON;
-3. import the ROI geometries into the final SpatialData;
+3. import the ROI geometries and preserve them in the final SpatialData;
 4. include a compact ROI overlay in the per-sample MultiQC report.
 
 The interchange format is intentionally independent of the annotation tool.
@@ -100,7 +100,7 @@ contracts and are rejected by the importer.
 
 `IMPORT_ROI_ANNOTATIONS` consumes the keyed combination of:
 
-- the most advanced SpatialData available for the sample;
+- the QC or Cell2location SpatialData for the sample;
 - `roi_annotations` GeoJSON;
 - the matching bounds TSV;
 - the matching capture-area image.
@@ -131,10 +131,10 @@ Nested properties are serialised as compact JSON strings. A QuPath-style
 The importer currently fails if the target shape element already exists. It
 does not silently overwrite an existing ROI annotation set.
 
-Samples without `roi_annotations` retain their previous final SpatialData
-unchanged. For annotated samples, the importer writes a new intermediate
-`<sample>_roi_annotations.zarr`, which becomes the SpatialData published by the
-main workflow under its normal final output name.
+For annotated samples, the importer writes `<sample>_roi_annotations.zarr`
+from the QC or Cell2location SpatialData. Optional segmentation and microscopy
+augmentation uses this annotated Zarr when available. The workflow publishes
+the annotated Zarr directly when microscopy augmentation is skipped.
 
 ## Reporting contract
 
