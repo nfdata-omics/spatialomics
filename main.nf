@@ -78,7 +78,7 @@ workflow NFDATAOMICS_SPATIALOMICS {
         ch_validated_samplesheet,
         spaceranger_outs,
         roi_annotations,
-        PREPARE_REF.out.spaceranger_index,
+        PREPARE_REF.out.spaceranger_index.collect(),
         PREPARE_REF.out.versions,
         ch_probeset,
         ch_single_cell_reference,
