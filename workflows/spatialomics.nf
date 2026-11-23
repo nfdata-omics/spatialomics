@@ -78,8 +78,6 @@ workflow SPATIALOMICS {
         .mix(ch_spaceranger_inputs.directory)
         .set { ch_prepared_spaceranger_outs }
 
-    ch_versions = ch_versions.mix(UNTAR_SPACERANGER_OUTS.out.versions)
-
     //
     // SUBWORKFLOW: Prepare FastQ files
     //
@@ -163,7 +161,6 @@ workflow SPATIALOMICS {
         SPACERANGER_TO_ZARR.out.zarr,
         '.gz'
     )
-    ch_versions = ch_versions.mix(TAR_RAW.out.versions.first())
 
     //
     // MODULE: Spatial quality control

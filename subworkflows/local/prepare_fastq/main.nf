@@ -38,7 +38,6 @@ workflow PREPARE_FASTQ {
     FQ_LINT(
         ch_reads
     )
-    ch_versions = ch_versions.mix(FQ_LINT.out.versions.first())
     ch_lint_log = ch_lint_log.mix(FQ_LINT.out.lint)
 
     //
