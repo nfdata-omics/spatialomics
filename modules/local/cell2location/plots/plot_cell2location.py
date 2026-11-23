@@ -5,6 +5,8 @@ import argparse
 import math
 from pathlib import Path
 
+from PIL import Image
+
 import matplotlib
 
 matplotlib.use("Agg")
@@ -17,6 +19,13 @@ import spatialdata_plot  # noqa: F401  # pylint: disable=unused-import
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import LogNorm, Normalize, to_hex, to_rgb
 from matplotlib.patches import Patch
+
+PREVIEW_TITLE_STYLE = {
+    "fontfamily": "DejaVu Sans",
+    "fontsize": 9,
+    "fontweight": "semibold",
+    "pad": 6,
+}
 
 
 def parse_args():
@@ -496,104 +505,193 @@ def plot_multiqc_deconvolution(
     sample_name,
     output_path,
 ):
-    """Plot the compact two-panel deconvolution summary for MultiQC."""
+    """Save a fixed-grid, two-panel MultiQC preview directly as WebP.
+
+    Plot positions are specified in output pixels instead of relying on
+    GridSpec's automatic sizing.  This keeps the titles, panel boxes and
+    legend/colorbar bands aligned across producers with the same contract.
+    The scientific plotting logic and analytical PDF exports are unchanged.
+    """
+    # Shared layout contract (repeat these values in other independent
+    # Nextflow producers; no cross-module Python imports are required).
+    canvas_width_px = 1200
+    canvas_height_px = 660
+    dpi = 100
+    margin_px = 48
+    gutter_px = 40
+    panel_width_px = (canvas_width_px - 2 * margin_px - gutter_px) / 2
+    plot_top_px = 62
+    plot_height_px = 455
+    title_y_px = 35
+    title_style = dict(
+        fontfamily="DejaVu Sans", fontsize=10, fontweight="semibold"
+    )
+
+    # A tiny local helper to place an Axes in a reserved pixel rectangle.
+    # Matplotlib expects normalized coordinates, measured from the bottom.
+    def add_axes_px(fig, left, top, width, height):
+        return fig.add_axes([
+            left / canvas_width_px,
+            1 - (top + height) / canvas_height_px,
+            width / canvas_width_px,
+            height / canvas_height_px,
+        ])
+
+    output_path = Path(output_path)
+    if output_path.suffix.lower() != ".webp":
+        raise ValueError("The MultiQC deconvolution preview must have a .webp extension")
+
     values = total_abundance.dropna().to_numpy()
     vmax = max(float(np.percentile(values, 99)), np.finfo(float).eps)
     colours = ["#d81b60", "#00a6d6", "#f4c430"]
     norm = Normalize(vmin=0, vmax=vmax)
 
-    fig, axes = plt.subplots(1, 2, figsize=(11.8, 5.5))
-    if image_key:
-        total_plot = sdata.pl.render_images(image_key, cmap="gray").pl.render_shapes(
-            shape_key,
-            color=total_column,
-            cmap="viridis",
-            norm=norm,
-            fill_alpha=0.8,
-            outline_width=0,
-            na_color="#00000000",
-            colorbar=False,
-        )
-    else:
-        total_plot = sdata.pl.render_shapes(
-            shape_key,
-            color=total_column,
-            cmap="viridis",
-            norm=norm,
-            fill_alpha=0.95,
-            outline_width=0,
-            na_color="#00000000",
-            colorbar=False,
-        )
-    total_plot.pl.show(coordinate_systems=coordinate_system, ax=axes[0], colorbar=False)
-    axes[0].set_title(f"Total abundance ({statistic})")
-    axes[0].set_axis_off()
-
-    if image_key:
-        mixture_plot = sdata.pl.render_images(image_key, cmap="gray").pl.render_shapes(
-            shape_key,
-            color=mixture_column,
-            groups=mixture_palette,
-            palette=mixture_palette,
-            fill_alpha=0.85,
-            outline_width=0,
-            na_color="#00000000",
-            colorbar=False,
-        )
-    else:
-        mixture_plot = sdata.pl.render_shapes(
-            shape_key,
-            color=mixture_column,
-            groups=mixture_palette,
-            palette=mixture_palette,
-            fill_alpha=0.95,
-            outline_width=0,
-            na_color="#00000000",
-            colorbar=False,
-        )
-
-    mixture_plot.pl.show(
-        coordinate_systems=coordinate_system,
-        ax=axes[1],
-        legend_loc=None,
-        na_in_legend=False,
+    fig = plt.figure(
+        figsize=(canvas_width_px / dpi, canvas_height_px / dpi),
+        dpi=dpi,
+        facecolor="white",
     )
-    axes[1].set_title(
-        "Cell-type composition\n"
-        f"selected types cover {selected_coverage:.1%} of slide abundance"
-    )
-    axes[1].set_axis_off()
-
-    legend_handles = [
-        Patch(facecolor=colour, label=cell_type)
-        for cell_type, colour in zip(selected_cell_types, colours)
+    lefts = (margin_px, margin_px + panel_width_px + gutter_px)
+    axes = [
+        add_axes_px(fig, left, plot_top_px, panel_width_px, plot_height_px)
+        for left in lefts
     ]
-    legend_handles.append(Patch(facecolor="#e0e0e0", label="Other cell types"))
-    axes[1].legend(
-        handles=legend_handles,
-        loc="lower center",
-        bbox_to_anchor=(0.5, -0.12),
-        ncol=2,
-        frameon=False,
-        fontsize=8,
-    )
+    try:
+        if image_key:
+            total_plot = sdata.pl.render_images(
+                image_key, cmap="gray", colorbar=False,
+            ).pl.render_shapes(
+                shape_key,
+                color=total_column,
+                cmap="viridis",
+                norm=norm,
+                fill_alpha=0.8,
+                outline_width=0,
+                na_color="#00000000",
+                colorbar=False,
+            )
+        else:
+            total_plot = sdata.pl.render_shapes(
+                shape_key,
+                color=total_column,
+                cmap="viridis",
+                norm=norm,
+                fill_alpha=0.95,
+                outline_width=0,
+                na_color="#00000000",
+                colorbar=False,
+            )
+        total_plot.pl.show(
+            coordinate_systems=coordinate_system, ax=axes[0], colorbar=False
+        )
 
-    for extra_axis in list(fig.axes):
-        if all(extra_axis is not axis for axis in axes.ravel()):
-            extra_axis.remove()
+        if image_key:
+            mixture_plot = sdata.pl.render_images(
+                image_key, cmap="gray", colorbar=False,
+            ).pl.render_shapes(
+                shape_key,
+                color=mixture_column,
+                groups=mixture_palette,
+                palette=mixture_palette,
+                fill_alpha=0.85,
+                outline_width=0,
+                na_color="#00000000",
+                colorbar=False,
+            )
+        else:
+            mixture_plot = sdata.pl.render_shapes(
+                shape_key,
+                color=mixture_column,
+                groups=mixture_palette,
+                palette=mixture_palette,
+                fill_alpha=0.95,
+                outline_width=0,
+                na_color="#00000000",
+                colorbar=False,
+            )
+        mixture_plot.pl.show(
+            coordinate_systems=coordinate_system,
+            ax=axes[1],
+            colorbar=False,
+            legend_loc=None,
+            na_in_legend=False,
+        )
 
-    colorbar = fig.colorbar(
-        ScalarMappable(norm=norm, cmap="viridis"),
-        ax=axes[0],
-        fraction=0.046,
-        pad=0.03,
-    )
-    colorbar.set_label("Total abundance", fontsize=8)
-    colorbar.ax.tick_params(labelsize=7)
+        # Both maps use the same cropped SpatialData object; explicitly
+        # synchronize their viewports, preserving the image y-axis direction.
+        axes[1].set_xlim(axes[0].get_xlim())
+        axes[1].set_ylim(axes[0].get_ylim())
+        for axis, left in zip(axes, lefts):
+            axis.set_position([
+                left / canvas_width_px,
+                1 - (plot_top_px + plot_height_px) / canvas_height_px,
+                panel_width_px / canvas_width_px,
+                plot_height_px / canvas_height_px,
+            ])
+            axis.set_aspect("equal", adjustable="box", anchor="C")
+            axis.set_title("")  # Remove spatialdata_plot automatic title
+            axis.set_axis_off()
 
-    fig.subplots_adjust(left=0.02, right=0.98, top=0.96, bottom=0.18, wspace=0.12)
-    fig.savefig(output_path, dpi=100, bbox_inches="tight", pad_inches=0.05)
-    plt.close(fig)
+        # Remove any incidental axes created by spatialdata_plot. The figure
+        # owns only the two maps and the explicitly positioned annotation axes.
+        for extra_axis in list(fig.axes):
+            if not any(extra_axis is panel_axis for panel_axis in axes):
+                extra_axis.remove()
+
+        for left, title in zip(
+            lefts, (f"Total abundance ({statistic})", "Cell-type composition")
+        ):
+            fig.text(
+                (left + panel_width_px / 2) / canvas_width_px,
+                1 - title_y_px / canvas_height_px,
+                title,
+                ha="center", va="center", **title_style,
+            )
+
+        # The horizontal colorbar occupies only the left panel's footer.
+        cbar_axis = add_axes_px(
+            fig, lefts[0] + 8, 552, panel_width_px - 16, 17
+        )
+        colorbar = fig.colorbar(
+            ScalarMappable(norm=norm, cmap="viridis"),
+            cax=cbar_axis,
+            orientation="horizontal",
+        )
+        colorbar.set_label("Estimated cells per spatial bin", fontsize=9, labelpad=3)
+        colorbar.ax.tick_params(labelsize=8, pad=2)
+
+        # Reserve the complete right footer for the coverage text and legend.
+        fig.text(
+            (lefts[1] + panel_width_px / 2) / canvas_width_px,
+            1 - 550 / canvas_height_px,
+            f"Selected types cover {selected_coverage:.1%} of slide abundance",
+            ha="center", va="center", fontfamily="DejaVu Sans", fontsize=9,
+        )
+        legend_axis = add_axes_px(fig, lefts[1], 567, panel_width_px, 74)
+        legend_axis.set_axis_off()
+        legend_handles = [
+            Patch(facecolor=colour, label=cell_type)
+            for cell_type, colour in zip(selected_cell_types, colours)
+        ]
+        legend_handles.append(Patch(facecolor="#e0e0e0", label="Other cell types"))
+        legend_axis.legend(
+            handles=legend_handles,
+            loc="center",
+            ncol=2,
+            frameon=False,
+            fontsize=9,
+            columnspacing=1.5,
+            handlelength=1.6,
+        )
+
+        # Draw using the Agg canvas, then hand the RGB pixels directly to
+        # Pillow. No temporary PNG is written to disk.
+        fig.canvas.draw()
+        rgba = np.asarray(fig.canvas.buffer_rgba())
+        image = Image.fromarray(rgba).convert("RGB")
+        image.save(output_path, format="WEBP", quality=90, method=6)
+    finally:
+        plt.close(fig)
 
 
 def main():
@@ -928,7 +1026,7 @@ def main():
         selected_coverage,
         args.abundance_statistic,
         args.sample_name,
-        Path(f"{prefix}_deconvolution_mqc.png"),
+        Path(f"{prefix}_deconvolution_mqc.webp"),
     )
 
     composition_path = Path(

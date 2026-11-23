@@ -19,7 +19,7 @@ process CELL2LOCATION_PLOTS {
     tuple val(meta), path("*_celltype_fraction_*.pdf"),                    emit: celltype_fraction
     tuple val(meta), path("*_dominant_celltype_*.pdf"),                    emit: dominant_celltype
     tuple val(meta), path("*_total_abundance_*.pdf"),                      emit: total_abundance
-    tuple val(meta), path("*_deconvolution_mqc.png"),                      emit: mqc_plot
+    tuple val(meta), path("*_deconvolution_mqc.webp"),                     emit: mqc_plot
     tuple val(meta), path("*_celltype_composition_*_mqc.tsv"),             emit: composition_mqc
     tuple val(meta), path("*_deconvolution_summary_*_mqc.tsv"),            emit: summary_mqc
     tuple val(meta), path("*_diagnostics.tsv"),                             emit: diagnostics

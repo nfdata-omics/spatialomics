@@ -6,6 +6,7 @@ import importlib.metadata
 import argparse
 import sys
 from pathlib import Path
+from PIL import Image
 from matplotlib.colors import LinearSegmentedColormap, Normalize
 from matplotlib.cm import ScalarMappable
 import yaml
@@ -24,6 +25,117 @@ from spatialdata.models import Image2DModel
 from spatialdata.transformations import get_transformation
 
 matplotlib.use("Agg")
+
+# The preview layout contract is intentionally local to this producer.
+# The same pixel grid is used by the other independent Nextflow producers:
+# 1200 px canvas, 48 px outer margins, 40 px inter-panel gutter, title
+# center at y=35 px, 10 pt DejaVu Sans semibold.  Only MultiQC preview
+# figures use this layout; analytical plots remain unchanged.
+PREVIEW_WIDTH_PX = 1200
+PREVIEW_DPI = 100
+PREVIEW_MARGIN_PX = 48
+PREVIEW_GUTTER_PX = 40
+PREVIEW_PANEL_WIDTH_PX = (
+    PREVIEW_WIDTH_PX - 2 * PREVIEW_MARGIN_PX - PREVIEW_GUTTER_PX
+) / 2
+PREVIEW_PANEL_LEFTS_PX = (
+    PREVIEW_MARGIN_PX,
+    PREVIEW_MARGIN_PX + PREVIEW_PANEL_WIDTH_PX + PREVIEW_GUTTER_PX,
+)
+PREVIEW_TITLE_STYLE = {
+    "fontfamily": "DejaVu Sans",
+    "fontsize": 10,
+    "fontweight": "semibold",
+}
+
+
+def new_preview_figure(height_px):
+    """Create a pixel-exact MultiQC preview figure with a white background."""
+    return plt.figure(
+        figsize=(PREVIEW_WIDTH_PX / PREVIEW_DPI, height_px / PREVIEW_DPI),
+        dpi=PREVIEW_DPI,
+        facecolor="white",
+    )
+
+
+def preview_add_axes(fig, left_px, top_px, width_px, height_px):
+    """Reserve an Axes rectangle in output pixels (origin: top left)."""
+    height = fig.get_figheight() * fig.dpi
+    return fig.add_axes([
+        left_px / PREVIEW_WIDTH_PX,
+        1 - (top_px + height_px) / height,
+        width_px / PREVIEW_WIDTH_PX,
+        height_px / height,
+    ])
+
+
+def preview_finish_map_axis(axis, box, viewport=None):
+    """Restore a fixed panel box after spatialdata_plot and hide its title."""
+    if viewport is not None:
+        set_axis_viewport(axis, viewport)
+    left_px, top_px, width_px, height_px = box
+    fig_height_px = axis.figure.get_figheight() * axis.figure.dpi
+    axis.set_position([
+        left_px / PREVIEW_WIDTH_PX,
+        1 - (top_px + height_px) / fig_height_px,
+        width_px / PREVIEW_WIDTH_PX,
+        height_px / fig_height_px,
+    ])
+    axis.set_aspect("equal", adjustable="box", anchor="C")
+    # spatialdata_plot can add the coordinate system as the Axes title.
+    # Titles are drawn separately in a fixed band instead.
+    axis.set_title("")
+    axis.set_axis_off()
+
+
+def preview_add_title(fig, left_px, title, top_px=35, width_px=PREVIEW_PANEL_WIDTH_PX):
+    """Draw a title inside its own reserved band, outside the map Axes."""
+    height = fig.get_figheight() * fig.dpi
+    fig.text(
+        (left_px + width_px / 2) / PREVIEW_WIDTH_PX,
+        1 - top_px / height,
+        title,
+        ha="center",
+        va="center",
+        **PREVIEW_TITLE_STYLE,
+    )
+
+
+def preview_remove_extra_axes(fig, plot_axes):
+    """Drop unintended colorbar/legend axes created by a plotting producer."""
+    for axis in list(fig.axes):
+        if not any(axis is plot_axis for plot_axis in plot_axes):
+            axis.remove()
+
+
+def save_preview_webp(fig, output_path, quality=90):
+    """Encode an Agg canvas as RGB WebP without an intermediate PNG file."""
+    output_path = Path(output_path)
+    if output_path.suffix.lower() != ".webp":
+        raise ValueError(f"Expected a .webp MultiQC preview filename: {output_path}")
+    fig.canvas.draw()
+    image = Image.fromarray(np.asarray(fig.canvas.buffer_rgba())).convert("RGB")
+    image.save(output_path, format="WEBP", quality=quality, method=6)
+
+
+def set_axis_viewport(axis, bounds):
+    """Set exact x/y bounds while preserving the plotted axis directions."""
+    minx, miny, maxx, maxy = bounds
+    axis.set_xlim((maxx, minx) if axis.xaxis_inverted() else (minx, maxx))
+    axis.set_ylim((maxy, miny) if axis.yaxis_inverted() else (miny, maxy))
+
+
+def get_element_viewport(sdata, image_key, coordinate_system):
+    """Get the full stored image extent in the plotting coordinate system."""
+    extent = spatialdata.get_extent(
+        sdata.images[image_key], coordinate_system=coordinate_system
+    )
+    return (
+        float(extent["x"][0]),
+        float(extent["y"][0]),
+        float(extent["x"][1]),
+        float(extent["y"][1]),
+    )
 
 
 def add_grayscale_preview_image(sdata, source_key, target_key):
@@ -63,84 +175,140 @@ def save_registration_tissue_preview(sdata, sample_id, resolution, output_path):
 
     minx, miny, maxx, maxy = sdata.shapes[capture_key].total_bounds
     padding = max(maxx - minx, maxy - miny) * 0.02
+    tissue_bounds = (minx - padding, miny - padding, maxx + padding, maxy + padding)
+
+    # Use stored metadata for the H&E field of view, not the first image
+    # artist produced by spatialdata_plot. This also makes it possible to
+    # diagnose whether the imported hires and full H&E cover different areas.
+    hires_viewport = get_element_viewport(sdata, hires_key, sample_id)
+    print(f"Registration H&E source: {hires_key}; extent: {hires_viewport}")
+    full_key = f"{sample_id}_full_image"
+    if full_key in sdata.images:
+        full_viewport = get_element_viewport(sdata, full_key, sample_id)
+        print(f"Registration full H&E available: {full_key}; extent: {full_viewport}")
+        if not np.allclose(hires_viewport, full_viewport, rtol=1e-3, atol=1e-3):
+            print(
+                "WARNING: hires H&E and full H&E have different spatial extents. "
+                "The registration preview uses the hires element."
+            )
+    else:
+        print("Registration: no *_full_image element found in SpatialData")
+
+    hires_gray_key = "_registration_hires_gray"
+    add_grayscale_preview_image(sdata, hires_key, hires_gray_key)
+
+    has_cytassist = cytassist_key in sdata.images
+    if has_cytassist:
+        cytassist_gray_key = "_registration_cytassist_gray"
+        add_grayscale_preview_image(sdata, cytassist_key, cytassist_gray_key)
+
     capture_crop = sdata.query.bounding_box(
         axes=("x", "y"),
-        min_coordinate=[minx - padding, miny - padding],
-        max_coordinate=[maxx + padding, maxy + padding],
+        min_coordinate=list(tissue_bounds[:2]),
+        max_coordinate=list(tissue_bounds[2:]),
         target_coordinate_system=sample_id,
     )
 
-    has_cytassist = cytassist_key in capture_crop.images
-    n_panels = 2 if has_cytassist else 1
-    fig, axes = plt.subplots(1, n_panels, figsize=(12, 5.5), squeeze=False)
-    axes = axes.ravel()
+    # One row, using the same two-column boxes as other MultiQC producers.
+    # With no CytAssist, the single panel spans the full two-column grid.
+    canvas_height_px = 570
+    plot_top_px = 62
+    plot_height_px = 455
+    panel_boxes = (
+        [(left, plot_top_px, PREVIEW_PANEL_WIDTH_PX, plot_height_px)
+         for left in PREVIEW_PANEL_LEFTS_PX]
+        if has_cytassist else
+        [(PREVIEW_MARGIN_PX, plot_top_px,
+          PREVIEW_WIDTH_PX - 2 * PREVIEW_MARGIN_PX, plot_height_px)]
+    )
+    fig = new_preview_figure(canvas_height_px)
+    axes = [preview_add_axes(fig, *box) for box in panel_boxes]
+    try:
+        if has_cytassist:
+            cytassist_cmap = LinearSegmentedColormap.from_list(
+                "cytassist_magenta",
+                ["#000000", "#ff00ff"],
+            )
+            sdata.pl.render_images(
+                hires_gray_key,
+                cmap="gray",
+                colorbar=False,
+            ).pl.render_images(
+                cytassist_gray_key,
+                cmap=cytassist_cmap,
+                alpha=0.45,
+                colorbar=False,
+            ).pl.render_shapes(
+                capture_key,
+                fill_alpha=0,
+                outline_color="#39ff14",
+                outline_width=2,
+                outline_alpha=1,
+            ).pl.show(
+                coordinate_systems=sample_id,
+                ax=axes[0],
+                colorbar=False,
+            )
+            if axes[0].images:
+                print(
+                    "Registration first Matplotlib image artist extent: "
+                    f"{axes[0].images[0].get_extent()}"
+                )
+            preview_finish_map_axis(
+                axes[0], panel_boxes[0], viewport=hires_viewport
+            )
+            preview_add_title(
+                fig, PREVIEW_PANEL_LEFTS_PX[0], "H&E / CytAssist registration"
+            )
+            tissue_axis = axes[1]
+        else:
+            print(
+                f"CytAssist layer '{cytassist_key}' is unavailable; "
+                "creating only the Space Ranger tissue-selection panel"
+            )
+            tissue_axis = axes[0]
 
-    hires_gray_key = "_registration_hires_gray"
-    add_grayscale_preview_image(capture_crop, hires_key, hires_gray_key)
-
-    if has_cytassist:
-        cytassist_gray_key = "_registration_cytassist_gray"
-        add_grayscale_preview_image(capture_crop, cytassist_key, cytassist_gray_key)
-        cytassist_cmap = LinearSegmentedColormap.from_list(
-            "cytassist_magenta",
-            ["#000000", "#ff00ff"],
-        )
         capture_crop.pl.render_images(
             hires_gray_key,
             cmap="gray",
             colorbar=False,
-        ).pl.render_images(
-            cytassist_gray_key,
-            cmap=cytassist_cmap,
-            alpha=0.45,
-            colorbar=False,
+        ).pl.render_shapes(
+            square_key,
+            color="#00d5ff",
+            fill_alpha=0.35,
+            outline_width=0,
         ).pl.render_shapes(
             capture_key,
             fill_alpha=0,
-            outline_color="#39ff14",
-            outline_width=2,
-            outline_alpha=1,
+            outline_color="#ffffff",
+            outline_width=1.5,
+            outline_alpha=0.9,
         ).pl.show(
             coordinate_systems=sample_id,
-            ax=axes[0],
+            ax=tissue_axis,
             colorbar=False,
-            title="H&E / CytAssist registration",
         )
-        axes[0].set_axis_off()
-        tissue_axis = axes[1]
-    else:
-        print(
-            f"CytAssist layer '{cytassist_key}' is unavailable; "
-            "creating only the Space Ranger tissue-selection panel"
+        set_axis_viewport(tissue_axis, tissue_bounds)
+        preview_finish_map_axis(
+            tissue_axis, panel_boxes[1] if has_cytassist else panel_boxes[0]
         )
-        tissue_axis = axes[0]
+        if has_cytassist:
+            preview_add_title(
+                fig, PREVIEW_PANEL_LEFTS_PX[1], "Space Ranger in-tissue bins"
+            )
+        else:
+            preview_add_title(
+                fig,
+                PREVIEW_MARGIN_PX,
+                "Space Ranger in-tissue bins",
+                width_px=PREVIEW_WIDTH_PX - 2 * PREVIEW_MARGIN_PX,
+            )
 
-    capture_crop.pl.render_images(
-        hires_gray_key,
-        cmap="gray",
-        colorbar=False,
-    ).pl.render_shapes(
-        square_key,
-        color="#00d5ff",
-        fill_alpha=0.35,
-        outline_width=0,
-    ).pl.render_shapes(
-        capture_key,
-        fill_alpha=0,
-        outline_color="#ffffff",
-        outline_width=1.5,
-        outline_alpha=0.9,
-    ).pl.show(
-        coordinate_systems=sample_id,
-        ax=tissue_axis,
-        colorbar=False,
-        title="Space Ranger in-tissue bins",
-    )
-    tissue_axis.set_axis_off()
+        preview_remove_extra_axes(fig, axes)
+        save_preview_webp(fig, output_path, quality=90)
+    finally:
+        plt.close(fig)
 
-    fig.subplots_adjust(left=0.01, right=0.99, top=0.94, bottom=0.01, wspace=0.05)
-    fig.savefig(output_path, dpi=100, bbox_inches="tight", pad_inches=0.03)
-    plt.close(fig)
 
 def spatial_quality_control(
     zarr_folder,
@@ -297,7 +465,7 @@ def spatial_quality_control(
         sdata,
         sample_id,
         resolution,
-        f"{sample_id}_registration_tissue_mqc.png",
+        f"{sample_id}_registration_tissue_mqc.webp",
     )
 
     # Collect QC summary
@@ -352,51 +520,100 @@ def spatial_quality_control(
         adata.obs[preview_column] = adata.obs[metric].where(in_tissue_mask)
         preview_columns[label] = (preview_column, filtered_metric)
 
-    # Crop the spatialdata object to the visium area
+    # Use one capture-area viewport for all six panels. The absolute padding is
+    # derived once in the plotted coordinate system and is not data-dependent.
     shape_key = f"{sample_id}_{resolution}"
-    minx, miny, maxx, maxy = sdata[shape_key].total_bounds
+    capture_key = f"{sample_id}_capture_area"
+    if capture_key not in sdata.shapes:
+        raise KeyError(f"Capture-area shape '{capture_key}' was not found")
+    minx, miny, maxx, maxy = sdata.shapes[capture_key].total_bounds
+    spatial_padding = max(maxx - minx, maxy - miny) * 0.02
+    spatial_bounds = (
+        minx - spatial_padding,
+        miny - spatial_padding,
+        maxx + spatial_padding,
+        maxy + spatial_padding,
+    )
     sdata_crop = sdata.query.bounding_box(
         axes=("x", "y"),
-        min_coordinate=[minx-1000, miny-1000],
-        max_coordinate=[maxx+1000, maxy+1000],
+        min_coordinate=list(spatial_bounds[:2]),
+        max_coordinate=list(spatial_bounds[2:]),
         target_coordinate_system=sample_id,
     )
 
-    # Spatial QC plot
-    with plt.rc_context({
-        "font.size": 8,
-        "axes.titlesize": 9,
-        "axes.labelsize": 8,
-        "xtick.labelsize": 7,
-        "ytick.labelsize": 7,
-    }):
-        fig, axs = plt.subplots(3, 2, figsize=(11.8, 15.5), constrained_layout=False)
-        cmap = "viridis"
+    # MultiQC spatial QC preview: three deterministic two-panel rows.
+    # The shared colorbar is deliberately narrower than a panel (420 px)
+    # and centered below the pair, rather than spanning the entire canvas.
+    save_spatial_qc_preview(
+        sdata_crop=sdata_crop,
+        adata=adata,
+        sample_id=sample_id,
+        resolution=resolution,
+        spatial_bounds=spatial_bounds,
+        spatial_metrics=spatial_metrics,
+        preview_columns=preview_columns,
+        output_path=f"{sample_id}_qc_spatial_plots.webp",
+    )
 
+    adata.obs.drop(columns=[column for column, _ in preview_columns.values()], inplace=True)
+
+def save_spatial_qc_preview(
+    sdata_crop,
+    adata,
+    sample_id,
+    resolution,
+    spatial_bounds,
+    spatial_metrics,
+    preview_columns,
+    output_path,
+):
+    """Render the six QC maps on a fixed grid, with one short bar per row.
+
+    All six maps preserve a common viewport and the same physical scale.
+    Per metric, the same Normalize object is used for before/after QC.
+    Titles and colorbars have dedicated pixel regions and cannot shift maps.
+    """
+    canvas_height_px = 1600
+    plot_top_px = 62
+    plot_height_px = 405
+    row_pitch_px = 520
+    bar_width_px = 420
+    bar_height_px = 16
+    bar_left_px = (PREVIEW_WIDTH_PX - bar_width_px) / 2
+    bar_offset_px = plot_top_px + plot_height_px + 18
+
+    fig = new_preview_figure(canvas_height_px)
+    plot_axes = []
+    try:
         for row, (label, metric, _, colorbar_label) in enumerate(spatial_metrics):
-            unfiltered_values = pd.to_numeric(
+            values = pd.to_numeric(
                 adata.obs[preview_columns[label][0]], errors="coerce"
             ).dropna().to_numpy(dtype=float)
-            if unfiltered_values.size > 0:
-                vmin = np.percentile(unfiltered_values, 1)
-                vmax = np.percentile(unfiltered_values, 99)
+            if values.size:
+                vmin = float(np.percentile(values, 1))
+                vmax = float(np.percentile(values, 99))
                 if vmin == vmax:
                     vmax = vmin + 1
             else:
-                vmin, vmax = 0, 1
+                vmin, vmax = 0.0, 1.0
             norm = Normalize(vmin=vmin, vmax=vmax)
 
-            for col, (column_title, color) in enumerate(zip(
+            row_plot_top = plot_top_px + row * row_pitch_px
+            for col, (column_title, column) in enumerate(zip(
                 ("In tissue · before QC", "QC pass"), preview_columns[label]
             )):
-                axis = axs[row, col]
-                sdata_crop.pl.render_images( # pylint: disable=no-member
+                left = PREVIEW_PANEL_LEFTS_PX[col]
+                box = (left, row_plot_top, PREVIEW_PANEL_WIDTH_PX, plot_height_px)
+                axis = preview_add_axes(fig, *box)
+                plot_axes.append(axis)
+                sdata_crop.pl.render_images(  # pylint: disable=no-member
                     f"{sample_id}_hires_image",
                     cmap="gray",
+                    colorbar=False,
                 ).pl.render_shapes(
                     f"{sample_id}_{resolution}",
-                    color=color,
-                    cmap=cmap,
+                    color=column,
+                    cmap="viridis",
                     norm=norm,
                     fill_alpha=0.5,
                     outline_width=0,
@@ -404,34 +621,41 @@ def spatial_quality_control(
                     colorbar=False,
                 ).pl.show(
                     coordinate_systems=sample_id,
-                    dpi=100,
                     ax=axis,
                     colorbar=False,
                 )
-                axis.set_title(f"{label} · {column_title}", fontsize=8)
-                axis.set_axis_off()
+                preview_finish_map_axis(axis, box, viewport=spatial_bounds)
+                preview_add_title(
+                    fig,
+                    left,
+                    f"{label} · {column_title}",
+                    top_px=35 + row * row_pitch_px,
+                )
 
-            colorbar = fig.colorbar(
-                ScalarMappable(norm=norm, cmap=cmap),
-                ax=axs[row, :],
-                fraction=0.035,
-                pad=0.025,
+            # Remove any incidental spatialdata_plot axes before adding a
+            # short, centrally placed scale for both maps in this row.
+            preview_remove_extra_axes(fig, plot_axes)
+            bar_axis = preview_add_axes(
+                fig,
+                bar_left_px,
+                bar_offset_px + row * row_pitch_px,
+                bar_width_px,
+                bar_height_px,
             )
-            colorbar.set_label(colorbar_label, fontsize=7)
-            colorbar.ax.tick_params(labelsize=7)
+            colorbar = fig.colorbar(
+                ScalarMappable(norm=norm, cmap="viridis"),
+                cax=bar_axis,
+                orientation="horizontal",
+            )
+            colorbar.set_label(colorbar_label, fontsize=9, labelpad=3)
+            colorbar.ax.tick_params(labelsize=8, pad=2)
+            # The explicit colorbar axes must survive cleanup in later rows.
+            plot_axes.append(bar_axis)
 
-        fig.subplots_adjust(left=0.015, right=0.92, top=0.98, bottom=0.015,
-                            wspace=0.06, hspace=0.12)
-
-        fig.savefig(
-            f"{sample_id}_qc_spatial_plots.png",
-            dpi=100,
-            bbox_inches="tight",
-            pad_inches=0.05,
-        )
+        save_preview_webp(fig, output_path, quality=90)
+    finally:
         plt.close(fig)
 
-    adata.obs.drop(columns=[column for column, _ in preview_columns.values()], inplace=True)
 
 def distribution_plots(adata, sample_id, min_counts, min_genes, max_mt):
     """

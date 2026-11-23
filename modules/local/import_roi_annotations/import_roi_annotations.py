@@ -37,6 +37,12 @@ REQUIRED_BOUNDS = {
     "scale_y",
     "zarr_downsample_factor",
 }
+PREVIEW_TITLE_STYLE = {
+    "fontfamily": "DejaVu Sans",
+    "fontsize": 9,
+    "fontweight": "semibold",
+    "pad": 6,
+}
 
 
 def read_bounds(path):
@@ -140,7 +146,19 @@ def save_plot(annotations, image_path, output_path):
     image = tifffile.imread(image_path)
     if image.ndim == 3:
         image = np.dot(image[..., :3], [0.2126, 0.7152, 0.0722])
-    fig, axis = plt.subplots(figsize=(10, 10))
+    fig = plt.figure(figsize=(12, 8), facecolor="white")
+    grid = fig.add_gridspec(
+        2,
+        2,
+        height_ratios=(1, 0.10),
+        left=0.04,
+        right=0.96,
+        top=0.94,
+        bottom=0.05,
+        hspace=0.10,
+    )
+    axis = fig.add_subplot(grid[0, :])
+    legend_axis = fig.add_subplot(grid[1, :])
     axis.imshow(image, cmap="gray")
 
     legend = {}
@@ -177,14 +195,20 @@ def save_plot(annotations, image_path, output_path):
         Line2D([0], [0], color=color, linewidth=3, label=label)
         for label, color in sorted(legend.items())
     ]
+    legend_axis.set_axis_off()
     if handles:
-        axis.legend(handles=handles, loc="upper right", framealpha=0.9)
+        legend_axis.legend(
+            handles=handles,
+            loc="center",
+            ncol=min(4, len(handles)),
+            frameon=False,
+            fontsize=8,
+        )
     axis.set_xlim(-0.5, image.shape[1] - 0.5)
     axis.set_ylim(image.shape[0] - 0.5, -0.5)
-    axis.set_title(f"ROI annotations (n={len(annotations)})")
+    axis.set_title(f"ROI annotations (n={len(annotations)})", **PREVIEW_TITLE_STYLE)
     axis.set_axis_off()
-    fig.tight_layout()
-    fig.savefig(output_path, dpi=150, bbox_inches="tight")
+    fig.savefig(output_path, dpi=100, facecolor="white")
     plt.close(fig)
 
 

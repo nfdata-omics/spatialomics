@@ -27,6 +27,13 @@ from shapely.geometry import box
 from spatialdata.models import Image2DModel, Labels2DModel, ShapesModel
 from spatialdata.transformations import Identity, Scale, Sequence, set_transformation
 
+PREVIEW_TITLE_STYLE = {
+    "fontfamily": "DejaVu Sans",
+    "fontsize": 9,
+    "fontweight": "semibold",
+    "pad": 6,
+}
+
 
 @dataclass(frozen=True)
 class CropArea:
@@ -488,6 +495,7 @@ def save_crop_segmentation_review(
         2,
         figsize=(12, max(4, 4 * n_crops)),
         squeeze=False,
+        facecolor="white",
     )
 
     capture_min, capture_max = capture_area.bounds_for_query
@@ -523,7 +531,10 @@ def save_crop_segmentation_review(
             ax=axes[index, 0],
             colorbar=False,
             legend_loc=None,
-            title=f"Crop {index + 1} — location",
+        )
+        axes[index, 0].set_title(
+            f"Crop {index + 1} — location",
+            **PREVIEW_TITLE_STYLE,
         )
         axes[index, 0].set_axis_off()
 
@@ -550,12 +561,22 @@ def save_crop_segmentation_review(
             coordinate_systems=sample_name,
             ax=axes[index, 1],
             colorbar=False,
-            title=f"Crop {index + 1} — segmentation",
+        )
+        axes[index, 1].set_title(
+            f"Crop {index + 1} — segmentation",
+            **PREVIEW_TITLE_STYLE,
         )
         axes[index, 1].set_axis_off()
 
-    fig.subplots_adjust(left=0.01, right=0.99, top=0.97, bottom=0.01, wspace=0.05, hspace=0.12)
-    fig.savefig(output_path, dpi=100, bbox_inches="tight", pad_inches=0.03)
+    fig.subplots_adjust(
+        left=0.04,
+        right=0.96,
+        top=0.94,
+        bottom=0.04,
+        wspace=0.08,
+        hspace=0.22,
+    )
+    fig.savefig(output_path, dpi=100, facecolor="white")
     plt.close(fig)
 
 

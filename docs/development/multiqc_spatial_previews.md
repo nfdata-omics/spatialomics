@@ -49,9 +49,22 @@ high-resolution deliverables.
 
 The previews must follow these conventions:
 
-- maximum figure width of approximately 1200 pixels at the saved resolution;
+- a shared outer canvas width, with a maximum of approximately 1200 pixels at
+  the saved resolution;
 - height determined by the specified layout, with a bounded height per row;
-- consistent margins, typography, panel spacing and white background;
+- a common two-column layout grid, with fixed outer margins and a fixed
+  horizontal gutter. A two-panel row uses two equal-width panel boxes; a
+  one-panel row spans both columns and the gutter, so its edges remain aligned
+  with the rows above and below;
+- consistent white background and vertical spacing between rows;
+- a shared panel-title style: every title uses the same explicitly configured
+  font family, font size and weight, and occupies the same title area rather
+  than inheriting producer-specific plotting defaults;
+- legends and colorbars are placed below the corresponding plot area and must
+  not change its horizontal position or width. Colorbars are horizontal; a
+  row-level colorbar shared by two panels spans the aligned row beneath them;
+- image aspect ratios are preserved within the aligned panel boxes rather than
+  stretching image content to fill them;
 - no sample-level figure title because MultiQC already identifies the sample;
 - no coordinate ticks or grayscale colorbars unless they convey information
   required to interpret the panel;
@@ -95,6 +108,12 @@ The registration panel is a composite in the sample coordinate system:
 2. the registered CytAssist image shown with a strong pseudocolor and partial
    transparency so tissue agreement and disagreement are immediately visible;
 3. the capture-area boundary shown as an unfilled, high-contrast outline.
+
+Its viewport is the complete transformed H&E image extent, including H&E
+regions outside the capture area. The transformed CytAssist layer and the
+capture-area outline are overlaid within that viewport and clipped only at the
+H&E image boundary; neither the capture-area bounds nor the CytAssist bounds
+may be used to crop the panel.
 
 The panel must use image layers and transformations declared in SpatialData. It
 must not read a rendered Space Ranger QC image or infer a transform from image
@@ -153,7 +172,9 @@ matrices, the ingestion path does not fabricate a CytAssist layer. The tissue
 detection panel remains available when its H&E, capture-area and `in_tissue`
 inputs are present, while the registration panel is omitted with an explicit
 reason recorded in the process output or log. The pipeline must never present
-two microscopy layers as a CytAssist-versus-H&E registration check.
+two microscopy layers as a CytAssist-versus-H&E registration check. When only
+the tissue-detection panel is rendered, it spans the full two-column grid while
+retaining its capture-area viewport.
 
 ### Spatial QC overlays
 
@@ -168,8 +189,14 @@ The spatial QC preview uses three rows and two columns:
 Each row uses one shared colormap, normalization and colorbar. Robust limits
 are calculated from the unfiltered in-tissue values for that metric and applied
 unchanged to both panels, making before/after colors directly comparable.
-Out-of-tissue observations are transparent. Existing QC flags, thresholds and
-the `qc_pass` definition are unchanged.
+The shared colorbar is horizontal and is placed below both plot areas.
+
+All six plot viewports use the same bounds: the capture-area bounding box
+expanded on every side by an absolute padding equal to 2% of the larger of its
+width and height. This padding is computed in the plotted coordinate system;
+data outside the padded bounds do not enlarge the viewport. Out-of-tissue
+observations are transparent. Existing QC flags, thresholds and the `qc_pass`
+definition are unchanged.
 
 ### Crop location and segmentation review
 
@@ -291,6 +318,12 @@ approximately 4.3 MiB.
 The provisional PNG sizes do not yet establish the final per-sample encoded
 budget, which depends on the open encoding decision and representative
 production images.
+
+The later layout refinement (shared fixed-width grid, full-H&E registration
+viewport, capture-area QC bounds and below-panel colorbars/legends) has been
+implemented and checked for Python syntax and imports in the pinned project
+container. The previews have not been regenerated or visually inspected after
+this refinement, and no Nextflow or stub run was performed.
 
 The official MultiQC AI documentation and the source code in the pinned 1.34
 container were inspected. The documented `no_ai` option removes the AI user
