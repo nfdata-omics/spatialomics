@@ -29,6 +29,7 @@ include { ASSEMBLE_SPATIAL_MULTIQC    } from '../modules/local/assemble_spatial_
 include { BIN2CELL                    } from '../modules/local/bin2cell/main'
 
 include { PREPARE_FASTQ          } from '../subworkflows/local/prepare_fastq'
+include { PCA                    } from '../subworkflows/local/pca'
 
 include { paramsSummaryMap       } from 'plugin/nf-schema'
 include { paramsSummaryMultiqc   } from '../subworkflows/nf-core/utils_nfcore_pipeline'
@@ -315,6 +316,15 @@ workflow SPATIALOMICS {
         params.roi_pseudobulk_bin_size
     )
     COMBINE_ROI_PSEUDOBULK(ROI_PSEUDOBULK.out.h5ad.collect { _meta, h5ad -> h5ad })
+
+    // Downstream analysis of the pseudobulk dataset
+    PCA(
+        COMBINE_ROI_PSEUDOBULK.out.h5ad.map { h5ad -> [["id": "pseudobulk"], h5ad] },
+        channel.value(""),
+        "classification_name"
+    )
+    ch_multiqc_files = ch_multiqc_files.mix(PCA.out.scores.map { _meta, path -> path })
+        .mix(PCA.out.explained_variance.map { _meta, path -> path })
 
     ch_analysis_zarr
         .map { meta, zarr -> [meta.id, meta, zarr] }
