@@ -22,9 +22,6 @@ process CELL2LOCATION_REINSERT {
     path "cell2location_joint_diagnostics.tsv", emit: joint_diagnostics
     tuple val("${task.process}"), val('container'), val('docker.io/nfdata/spatialdata:v0.7.2'), emit: versions_container, topic: versions
 
-    when:
-    task.ext.when == null || task.ext.when
-
     script:
     def args = task.ext.args ?: ''
     if (sample_ids.size() != zarr_folders.size()) {

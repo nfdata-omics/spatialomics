@@ -64,7 +64,7 @@ workflow SPATIALOMICS {
     // outs directory or as a .tar.gz archive (including a remote URL). Extract
     // archives once and expose the same [meta, directory] tuple downstream.
     ch_spaceranger_outs
-        .branch { meta, spaceranger_outs ->
+        .branch { _meta, spaceranger_outs ->
             archive: spaceranger_outs.name.toLowerCase().endsWith('.tar.gz')
             directory: true
         }

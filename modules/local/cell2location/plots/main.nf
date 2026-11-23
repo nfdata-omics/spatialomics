@@ -25,9 +25,6 @@ process CELL2LOCATION_PLOTS {
     tuple val(meta), path("*_diagnostics.tsv"),                             emit: diagnostics
     tuple val("${task.process}"), val('container'), val('docker.io/nfdata/spatialdata:v0.7.2'), emit: versions_container, topic: versions
 
-    when:
-    task.ext.when == null || task.ext.when
-
     script:
     def prefix = task.ext.prefix ?: "${meta.id}"
     def args = task.ext.args ?: ''

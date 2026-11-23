@@ -13,9 +13,6 @@ process CZI_TO_SPACERANGER_TIFF {
     tuple val(meta), path("*_spaceranger_info.txt"), emit: info
     tuple val("${task.process}"), val('container'), val('quay.io/biocontainers/bftools:8.0.0--hdfd78af_0'), emit: versions_container, topic: versions
 
-    when:
-    task.ext.when == null || task.ext.when
-
     script:
     def prefix = task.ext.prefix ?: "${meta.id}"
     def maxMemoryMb = task.memory ? (task.memory.toMega() * 0.75) as int : 4096

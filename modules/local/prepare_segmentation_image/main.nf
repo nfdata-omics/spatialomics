@@ -12,9 +12,6 @@ process PREPARE_SEGMENTATION_IMAGE {
     tuple val(meta), path("*_memmappable.ome.tif"), emit: tiff
     tuple val("${task.process}"), val('container'), val('docker.io/nfdata/cellpose-cuda:v4.0.8-torch2.10.0-cuda12.1.1'), emit: versions_container, topic: versions
 
-    when:
-    task.ext.when == null || task.ext.when
-
     script:
     def prefix = task.ext.prefix ?: "${meta.id}"
     """

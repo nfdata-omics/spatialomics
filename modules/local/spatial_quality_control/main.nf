@@ -20,9 +20,6 @@ process SPATIAL_QUALITY_CONTROL {
     tuple val(meta), path("*_qc_mqc.webp"),           emit: mqc_plot
     tuple val(meta), path("*_registration_tissue_mqc.webp"), emit: registration_plot
 
-    when:
-    task.ext.when == null || task.ext.when
-
     script:
     def prefix = task.ext.prefix ?: "${meta.id}"
     """

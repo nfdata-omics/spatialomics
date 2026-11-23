@@ -13,9 +13,6 @@ process SKIMAGE_WATERSHED_SEGMENTATION {
     tuple val(meta), path("*_memmappable.ome.tif"), emit: tiff
     tuple val("${task.process}"), val('container'), val('quay.io/biocontainers/scikit-image:0.24.0'), emit: versions_container, topic: versions
 
-    when:
-    task.ext.when == null || task.ext.when
-
     script:
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"

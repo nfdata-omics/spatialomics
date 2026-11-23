@@ -17,9 +17,6 @@ process SPATIALDATA_AUGMENT_WITH_SEGMENTATION {
     tuple val(meta), path("*_segmentation_stats.csv"), emit: segmentation_stats
     tuple val("${task.process}"), val('container'), val('docker.io/nfdata/spatialdata:v0.7.2'), emit: versions_container, topic: versions
 
-    when:
-    task.ext.when == null || task.ext.when
-
     script:
     def prefix = task.ext.prefix ?: "${meta.id}"
     def args = task.ext.args ?: ''

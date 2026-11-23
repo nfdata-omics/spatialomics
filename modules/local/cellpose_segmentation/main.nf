@@ -11,9 +11,6 @@ process CELLPOSE_SEGMENTATION {
     tuple val(meta), path("*_mask.tif"), emit: mask
     path "versions.yml",   emit: versions
 
-    when:
-    task.ext.when == null || task.ext.when
-
     script:
     def args = task.ext.args ?: ''
     """

@@ -11,9 +11,6 @@ process COLLECT_SPACERANGER_METRICS {
     path "spaceranger_metrics.csv",  emit: metrics
     path "versions.yml", emit: versions
 
-    when:
-    task.ext.when == null || task.ext.when
-
     script:
     """
     #!/usr/bin/env python3

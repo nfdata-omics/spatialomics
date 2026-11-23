@@ -16,9 +16,6 @@ process BIN2CELL {
     tuple val(meta), path("*_bin2cell_summary.csv"), emit: summary
     path "versions.yml", emit: versions
 
-    when:
-    task.ext.when == null || task.ext.when
-
     script:
     def prefix = task.ext.prefix ?: "${meta.id}"
     def args = task.ext.args ?: ''

@@ -16,9 +16,6 @@ process CELL2LOCATION_DECONVOLUTION {
     path "cell2location_joint_diagnostics.json", emit: diagnostics
     tuple val("${task.process}"), val('container'), val('docker.io/nfdata/cell2location-cuda:v0.1.5-torch2.8.0-cuda12.9'), emit: versions_container, topic: versions
 
-    when:
-    task.ext.when == null || task.ext.when
-
     script:
     def args = task.ext.args ?: ''
     if (sample_ids.size() != zarr_folders.size()) {

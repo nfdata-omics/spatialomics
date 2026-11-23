@@ -11,9 +11,6 @@ process ASSEMBLE_SPATIAL_MULTIQC {
     tuple val(meta), path("*_spatial_mqc.html"), emit: html
     tuple val("${task.process}"), val('container'), val('docker.io/nfdata/spatialdata:v0.7.2'), emit: versions_container, topic: versions
 
-    when:
-    task.ext.when == null || task.ext.when
-
     script:
     def prefix = task.ext.prefix ?: "${meta.id}"
     """

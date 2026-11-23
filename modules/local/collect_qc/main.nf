@@ -16,9 +16,6 @@ process COLLECT_QC {
     path "qc_metrics.csv",  emit: metrics
     path "versions.yml",   emit: versions
 
-    when:
-    task.ext.when == null || task.ext.when
-
     script:
     """
     export NUMBA_CACHE_DIR=\${TMPDIR:-/tmp}

@@ -17,9 +17,6 @@ process CELL2LOCATION_REFERENCE {
     tuple val(meta), path("*_reference_signatures.csv"), emit: signatures
     tuple val("${task.process}"), val('container'), val('docker.io/nfdata/cell2location-cuda:v0.1.5-torch2.8.0-cuda12.9'), emit: versions_container, topic: versions
 
-    when:
-    task.ext.when == null || task.ext.when
-
     script:
     def prefix = task.ext.prefix ?: "${meta.id}"
     def args = task.ext.args ?: ''
