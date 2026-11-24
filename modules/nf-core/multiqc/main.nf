@@ -3,7 +3,7 @@ process MULTIQC {
     label 'process_single'
 
     conda "${moduleDir}/environment.yml"
-    container "docker.io/nfdata/omics_pipeline_reporter:v1.33.p2"
+    container "docker.io/nfdata/omics_pipeline_reporter:v1.35.p1"
 
     input:
     tuple val(meta), path(multiqc_files, stageAs: "?/*"), path(multiqc_config, stageAs: "?/*"), path(multiqc_logo), path(replace_names), path(sample_names)

@@ -119,10 +119,6 @@ sp:
     fn: "*_segmentation_stats.csv"
   bin2cell_summary:
     fn: "*_bin2cell_summary.csv"
-  dim_reduction/pca:
-    fn: "*.pca_scores.txt"
-  dim_reduction/explained_variance:
-    fn: "*.pca_explained_variance.txt"
 
 custom_data:
   spaceranger_general_stats:
