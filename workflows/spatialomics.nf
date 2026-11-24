@@ -29,7 +29,7 @@ include { ASSEMBLE_SPATIAL_MULTIQC    } from '../modules/local/assemble_spatial_
 include { BIN2CELL                    } from '../modules/local/bin2cell/main'
 
 include { PREPARE_FASTQ          } from '../subworkflows/local/prepare_fastq'
-include { PCA                    } from '../subworkflows/local/pca'
+include { PSEUDOBULK_PREPROCESS  } from '../subworkflows/local/pseudobulk_preprocess'
 
 include { paramsSummaryMap       } from 'plugin/nf-schema'
 include { paramsSummaryMultiqc   } from '../subworkflows/nf-core/utils_nfcore_pipeline'
@@ -318,13 +318,16 @@ workflow SPATIALOMICS {
     COMBINE_ROI_PSEUDOBULK(ROI_PSEUDOBULK.out.h5ad.collect { _meta, h5ad -> h5ad })
 
     // Downstream analysis of the pseudobulk dataset
-    PCA(
+    PSEUDOBULK_PREPROCESS(
         COMBINE_ROI_PSEUDOBULK.out.h5ad.map { h5ad -> [["id": "pseudobulk"], h5ad] },
+        params.roi_pseudobulk_min_counts,
         channel.value(""),
         "classification_name"
     )
-    ch_multiqc_files = ch_multiqc_files.mix(PCA.out.scores.map { _meta, path -> path })
-        .mix(PCA.out.explained_variance.map { _meta, path -> path })
+    ch_multiqc_files = ch_multiqc_files.mix(PSEUDOBULK_PREPROCESS.out.multiqc_html.map { _meta, path -> path })
+        .mix(PSEUDOBULK_PREPROCESS.out.multiqc_table.map { _meta, path -> path })
+        .mix(PSEUDOBULK_PREPROCESS.out.multiqc_scores.map { _meta, path -> path })
+        .mix(PSEUDOBULK_PREPROCESS.out.explained_variance.map { _meta, path -> path })
 
     ch_analysis_zarr
         .map { meta, zarr -> [meta.id, meta, zarr] }

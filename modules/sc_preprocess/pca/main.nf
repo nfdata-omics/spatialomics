@@ -14,6 +14,7 @@ process SC_PREPROCESS_PCA {
     tuple val(meta), path("${meta.id}.pca.pdf"), emit: plot
     tuple val(meta), path("${meta.id}.pca_variance.pdf"), emit: variance_plot
     tuple val(meta), path("${meta.id}.pca_scores.txt"), emit: scores
+    tuple val(meta), path("multiqc/${meta.id}.pca_scores.txt"), emit: multiqc_scores
     tuple val(meta), path("${meta.id}.pca_explained_variance.txt"), emit: explained_variance
 
     script:
@@ -24,6 +25,7 @@ process SC_PREPROCESS_PCA {
     export MPLCONFIGDIR=/tmp
     export XDG_CONFIG_HOME=/tmp
 
+    mkdir -p multiqc
     sc_preprocess.py pca \\
         ${args} \\
         --input "${h5ad}" \\
@@ -32,11 +34,13 @@ process SC_PREPROCESS_PCA {
         --plot "${meta.id}.pca.pdf" \\
         --variance-plot "${meta.id}.pca_variance.pdf" \\
         --scores "${meta.id}.pca_scores.txt" \\
+        --plot-scores "multiqc/${meta.id}.pca_scores.txt" \\
         --explained-variance "${meta.id}.pca_explained_variance.txt"
     """
 
     stub:
     """
-    touch "${meta.id}.pca.h5ad" "${meta.id}.pca.pdf" "${meta.id}.pca_variance.pdf" "${meta.id}.pca_scores.txt" "${meta.id}.pca_explained_variance.txt"
+    mkdir -p multiqc
+    touch "${meta.id}.pca.h5ad" "${meta.id}.pca.pdf" "${meta.id}.pca_variance.pdf" "${meta.id}.pca_scores.txt" "${meta.id}.pca_explained_variance.txt" "multiqc/${meta.id}.pca_scores.txt"
     """
 }

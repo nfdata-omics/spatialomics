@@ -99,6 +99,13 @@ Overlapping ROIs count their shared bins independently. The observation annotati
 
 QuPath image metadata supplied as a top-level `sample_metadata` object in the ROI GeoJSON is stored in the annotated SpatialData and exposed in AnnData as `sample_metadata.<key>` columns. Numeric, Boolean, and structured metadata values are represented as JSON text in AnnData. Missing values remain missing. Column names encode `%` and `/` as `%25` and `%2F`, respectively.
 
+Before normalization and PCA, the combined dataset is checked against
+`--roi_pseudobulk_min_counts`, the inclusive minimum UMI count per ROI. The
+default of `0` retains all ROIs. The files `pseudobulk/pseudobulk.qc_gex.pdf`
+and `pseudobulk/pseudobulk.qc.html` report QC for all ROIs together. MultiQC
+includes the ROI QC summary table and interactive outcomes alongside the
+PCA results.
+
 [ROI pseudobulk specification](development/roi_pseudobulk.md)
 
 ### FastQC

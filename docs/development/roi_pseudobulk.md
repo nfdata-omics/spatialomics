@@ -151,6 +151,24 @@ same `obs_id` from `obs_names`. The counts use `var_names` for gene column
 headers, matching `gene_id` in the gene annotations. Preserve the order and
 integer counts from the combined H5AD. Write missing annotations as empty fields.
 
+## QC and preprocessing
+
+When a combined H5AD is available, run the GEX QC step before normalization,
+HVG selection and PCA. The only exclusion criterion is an inclusive minimum
+total UMI count per ROI (`--roi_pseudobulk_min_counts`, default `0`). QC
+annotates all rows and preserves the original count matrix. Downstream analyses
+use the passing ROIs and retain the original ROI identifiers, with missing PCA
+coordinates for excluded ROIs.
+
+Pool all combined ROIs into one group for QC reporting and retain sample IDs
+as provenance. Publish the GEX distributions PDF and interactive HTML under
+`pseudobulk/`. Include the ROI QC summary table and interactive outcomes in
+MultiQC alongside the PCA outputs. QC reports cover all evaluated ROIs. The
+MultiQC PCA plot uses only ROIs with computed coordinates, while the published
+scores retain every ROI.
+
+## Interpretation
+
 The resulting rows describe individual ROI features. For downstream inference,
 ROI observations from the same biological replicate should be modelled as such.
 When pooling overlapping ROIs into a single region, aggregate over the union

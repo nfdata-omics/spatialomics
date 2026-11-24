@@ -140,7 +140,8 @@ def qc_metrics(adata, kind, name):
     work = AnnData(X=counts.copy() if sparse.issparse(counts) else counts)
     groups = []
     if kind == "gex":
-        symbols = adata.var.get("gene_symbols", adata.var_names.to_series()).astype("string").str.upper()
+        symbols = adata.var.get("gene_symbols", adata.var.get("gene_symbol", adata.var_names.to_series()))
+        symbols = symbols.astype("string").str.upper()
         work.var["mt"] = symbols.str.startswith("MT-", na=False).to_numpy(dtype=bool)
         work.var["ribo"] = symbols.str.startswith(("RPS", "RPL"), na=False).to_numpy(dtype=bool)
         work.var["hb"] = symbols.str.match(r"^HB[^(P)]", na=False).to_numpy(dtype=bool)
@@ -226,15 +227,19 @@ def group_positions(samples, obs_names):
 
 def qc_summaries(data, args, mods, samples):
     summaries = {}
+    unit, unit_title = ("ROIs", "ROIs") if args.report_observation_unit == "rois" else ("cells", "Cells")
     report_mods = {kind: [(name, adata) for name, adata, k in mods if k == kind]
                    for kind in CELL_CRITERIA}
     groups = {name: group_positions(samples, adata.obs_names) for name, adata, _ in mods}
     for sample, positions in group_positions(samples, data.obs_names).items():
         admitted = int(data.obs["qc_pass"].iloc[positions].sum())
         total = len(positions)
-        row = {"Cells evaluated": total, "Admitted": admitted, "Excluded": total - admitted}
+        row = {f"{unit_title} evaluated": total, "Admitted": admitted, "Excluded": total - admitted}
         bars = []
         for kind, spec_list in CELL_CRITERIA.items():
+            # An explicit standalone data type also limits the report to that modality.
+            if args.data_type != "auto" and args.data_type != kind:
+                continue
             available = report_mods[kind]
             for name, adata in available or [(None, None)]:
                 label = MODALITY_LABEL[kind]
@@ -259,14 +264,14 @@ def qc_summaries(data, args, mods, samples):
                     flag = f"qc_pass_{metric}"
                     if obs is None or obs.empty or flag not in obs:
                         status = "Unavailable" if obs is None or obs.empty else "Inactive"
-                        row[f"{title}: cells evaluated"] = status
-                        row[f"{title}: cells failing"] = status
+                        row[f"{title}: {unit} evaluated"] = status
+                        row[f"{title}: {unit} failing"] = status
                         if obs is None or flag not in obs:
                             continue
                     failed = int((~obs[flag]).sum())
                     if not obs.empty:
-                        row[f"{title}: cells evaluated"] = len(obs)
-                        row[f"{title}: cells failing"] = failed
+                        row[f"{title}: {unit} evaluated"] = len(obs)
+                        row[f"{title}: {unit} failing"] = failed
                     details = []
                     if lower is not None:
                         details.append(f"Below minimum ({lower}): {int(obs[metric].lt(lower).sum())}")
@@ -277,16 +282,15 @@ def qc_summaries(data, args, mods, samples):
                     bars.append((title, failed, "\n".join(details)))
                 if obs is not None:
                     missing = total - len(obs)
-                    row[f"Cells missing from {label}"] = missing
+                    row[f"{unit_title} missing from {label}"] = missing
                     if missing:
-                        bars.append((f"Cells missing from {label}", missing, ""))
+                        bars.append((f"{unit_title} missing from {label}", missing, ""))
         summaries[str(sample)] = (row, bars)
     return summaries
 
 
-def qc_interactive_html(summaries):
-    parts = ["""<section class="sc-qc-report" aria-label="Single-cell QC">
-<style>
+def qc_interactive_html(summaries, title):
+    parts = [f'<section class="sc-qc-report" aria-label="{title}">', """<style>
 .sc-qc-report details { margin: .6em 0; }
 .sc-qc-report summary { cursor: pointer; font-weight: bold; }
 .sc-qc-report .sc-qc-track { display: flex; height: 1em; background: #dce1e6; max-width: 42em; }
@@ -294,7 +298,8 @@ def qc_interactive_html(summaries):
 .sc-qc-report .sc-qc-admitted { background: #197764; }
 </style>"""]
     for i, (sample, (row, bars)) in enumerate(summaries.items()):
-        total, admitted, excluded = (row[key] for key in ("Cells evaluated", "Admitted", "Excluded"))
+        admitted, excluded = row["Admitted"], row["Excluded"]
+        total = admitted + excluded
         outcome = f"Admitted: {admitted} / Excluded: {excluded}"
         parts.extend([
             f'<details{" open" if i == 0 else ""}><summary>{escape(sample)}</summary>',
@@ -326,12 +331,15 @@ def qc_distribution_pdf(path, args, mods, samples, kind):
     metrics = [(spec[0], spec[1], criterion_bounds(args, spec)) for spec in CELL_CRITERIA[kind]]
     if kind == "gex":
         metrics.append(("pct_counts_ribo", "Ribosomal counts (%)", (None, None)))
+    report_title = f"{MODALITY_LABEL[kind]} QC"
+    if args.report_observation_unit == "rois":
+        report_title = f"ROI pseudobulk {report_title}"
     groups = {name: group_positions(samples, adata.obs_names) for name, adata in mods}
     with PdfPages(path) as pdf:
         for sample in samples.unique():
             fig, axes = plt.subplots(len(mods), len(metrics), figsize=(3.5 * len(metrics), 3 * len(mods)),
                                      squeeze=False, layout="constrained")
-            fig.suptitle(f"{MODALITY_LABEL[kind]} QC – {sample}")
+            fig.suptitle(f"{report_title} – {sample}")
             for (name, adata), axes_row in zip(mods, axes):
                 obs = adata.obs.iloc[groups[name].get(sample, [])]
                 for ax, (metric, title, bounds) in zip(axes_row, metrics):
@@ -383,22 +391,26 @@ def write_qc_reports(data, args, mods, samples):
     if not (args.html or args.multiqc_html or args.multiqc_table):
         return
     summaries = qc_summaries(data, args, mods, samples)
+    if args.report_observation_unit == "rois":
+        report_id, title = "roi_pseudobulk_qc", "ROI pseudobulk QC"
+    else:
+        report_id, title = "single_cell_qc", "Single-cell QC"
     if args.html or args.multiqc_html:
-        view = qc_interactive_html(summaries)
+        view = qc_interactive_html(summaries, title)
         if args.html:
             args.html.write_text(f'<!doctype html><html lang="en"><meta charset="utf-8">'
-                                 f'<title>Single-cell QC</title><body>{view}</body></html>\n', encoding="utf-8")
+                                 f'<title>{title}</title><body>{view}</body></html>\n', encoding="utf-8")
         if args.multiqc_html:
             args.multiqc_html.write_text(
-                "<!--\nid: single_cell_qc_outcomes\nsection_name: Single-cell QC outcomes\n-->\n"
+                f"<!--\nid: {report_id}_outcomes\nsection_name: {title} outcomes\n-->\n"
                 + view + "\n", encoding="utf-8",
             )
     if args.multiqc_table:
         table = {
-            "id": "single_cell_qc_summary",
-            "section_name": "Single-cell QC summary",
+            "id": f"{report_id}_summary",
+            "section_name": f"{title} summary",
             "plot_type": "table",
-            "pconfig": {"id": "single_cell_qc_summary_table", "title": "Single-cell QC summary"},
+            "pconfig": {"id": f"{report_id}_summary_table", "title": f"{title} summary"},
             "data": {sample: row for sample, (row, _) in summaries.items()},
         }
         args.multiqc_table.write_text(json.dumps(table, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -642,6 +654,9 @@ def run_pca(data, args, mods):
         p = _path_for_mode(args.scores, name, len(mods) > 1)
         if p:
             _write_pca_scores(adata, p)
+        p = _path_for_mode(args.plot_scores, name, len(mods) > 1)
+        if p:
+            _write_pca_scores(work, p)
         p = _path_for_mode(args.explained_variance, name, len(mods) > 1)
         if p:
             ratios = np.asarray(adata.uns["pca"]["variance_ratio"], dtype=float)
@@ -934,6 +949,8 @@ def build_parser():
             sub.add_argument("--doublet-column", help="Existing GEX observation column with doublet labels")
             sub.add_argument("--doublet-label", default="doublet", help="Label to exclude when --doublet-column is set")
             sub.add_argument("--sample-column", help="Observation column with sample identifiers for reports")
+            sub.add_argument("--report-observation-unit", choices=("cells", "rois"), default="cells",
+                             help="Observation labels used in QC reports")
             sub.add_argument("--gex-pdf", type=Path, help="Per-sample GEX distributions PDF")
             sub.add_argument("--adt-pdf", type=Path, help="Per-sample ADT distributions PDF")
             sub.add_argument("--html", type=Path, help="Standalone interactive QC report")
@@ -950,6 +967,7 @@ def build_parser():
             sub.add_argument("--plot", help="PCA PDF; for multimodal input include {modality}")
             sub.add_argument("--variance-plot", help="PCA explained-variance PDF; for multimodal include {modality}")
             sub.add_argument("--scores", help="Tab-separated PCA coordinates and observation metadata; for multimodal include {modality}")
+            sub.add_argument("--plot-scores", help="Tab-separated PCA scores for computed observations; for multimodal include {modality}")
             sub.add_argument("--explained-variance", help="Tab-separated explained variance percentages; for multimodal include {modality}")
             sub.add_argument("--color", default="sample")
         if cmd == "neighbors":
