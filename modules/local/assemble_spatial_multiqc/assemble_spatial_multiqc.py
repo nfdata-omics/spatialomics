@@ -12,8 +12,8 @@ from pathlib import Path
 IMAGE_SECTIONS = [
     (
         "registration_tissue_mqc",
-        "Registration and tissue detection",
-        "Registered H&E/CytAssist overlay and Space Ranger in-tissue selection.",
+        "H&E and Space Ranger tissue detection",
+        "Space Ranger in-tissue selection over H&E, with a registered H&E/CytAssist overlay when available.",
     ),
     (
         "qc_mqc",

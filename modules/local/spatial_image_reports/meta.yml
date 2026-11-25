@@ -1,0 +1,85 @@
+name: spatial_image_reports
+description: Generate registration, tissue selection and optional segmentation reports from the final SpatialData
+keywords:
+  - spatialdata
+  - microscopy
+  - segmentation
+  - multiqc
+tools:
+  - spatialdata-plot:
+      description: Plotting utilities for SpatialData objects.
+      homepage: https://spatialdata.scverse.org/projects/plot/
+      licence: ["BSD-3-Clause"]
+input:
+  - - meta:
+        type: map
+        description: Sample metadata containing the sample ID
+    - zarr_folder:
+        type: directory
+        description: Final SpatialData with samplesheet H&E
+        pattern: "*.zarr"
+    - crop_areas:
+        type: string
+        description: Optional crop areas as x0:y0:x1:y1[;x0:y0:x1:y1] in sample coordinates
+  - resolution:
+      type: string
+      description: Key of the annotated Visium bin table for tissue selection
+  - zarr_downsample_factor:
+      type: number
+      description: Downsampling factor between TIFF coordinates and the sample coordinate system
+  - chunk_size:
+      type: integer
+      description: Side length used when counting label pixels in chunks
+  - segmentation_enabled:
+      type: boolean
+      description: Whether segmentation labels are available for the report
+output:
+  registration_plot:
+    - - meta:
+          type: map
+          description: Sample metadata containing the sample ID
+      - "*_registration_tissue_mqc.webp":
+          type: file
+          description: H&E tissue selection with a registration panel when available
+          pattern: "*_registration_tissue_mqc.webp"
+  crop_segmentation_plot:
+    - - meta:
+          type: map
+          description: Sample metadata containing the sample ID
+      - "*_crop_segmentation_mqc.png":
+          type: file
+          description: Optional crop location and segmentation review
+          pattern: "*_crop_segmentation_mqc.png"
+  segmentation_stats:
+    - - meta:
+          type: map
+          description: Sample metadata containing the sample ID
+      - "*_segmentation_stats.csv":
+          type: file
+          description: Optional per-sample whole-image and Visium segmentation statistics
+          pattern: "*_segmentation_stats.csv"
+  versions_container:
+    - - ${task.process}:
+          type: string
+          description: The process the versions were collected from
+      - container:
+          type: string
+          description: The runtime environment type
+      - docker.io/nfdata/spatialdata:v0.7.2:
+          type: string
+          description: The Docker image used by the module
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: The process the versions were collected from
+      - container:
+          type: string
+          description: The runtime environment type
+      - docker.io/nfdata/spatialdata:v0.7.2:
+          type: string
+          description: The Docker image used by the module
+containers:
+  docker:
+    linux/amd64:
+      name: docker.io/nfdata/spatialdata:v0.7.2

@@ -193,8 +193,8 @@
                 "skip_segmentation": {
                     "type": "boolean",
                     "default": false,
-                    "description": "Skip microscopy image conversion, cell segmentation, and segmentation visualization outputs.",
-                    "help_text": "Use this option when microscopy images are present in the samplesheet but cell segmentation and the related MultiQC plots/statistics should not be generated.",
+                    "description": "Skip cell segmentation and its downstream outputs.",
+                    "help_text": "Samplesheet H&E is still added to the final SpatialData and used for the tissue-selection preview and, when available, the CytAssist registration panel.",
                     "fa_icon": "fas fa-ban"
                 },
                 "segmentation_method": {

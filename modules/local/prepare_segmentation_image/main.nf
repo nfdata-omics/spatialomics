@@ -3,14 +3,14 @@ process PREPARE_SEGMENTATION_IMAGE {
     label 'process_single', 'process_high_memory'
 
     conda "${moduleDir}/environment.yml"
-    container 'docker.io/nfdata/cellpose-cuda:v4.0.8-torch2.10.0-cuda12.1.1'
+    container 'docker.io/nfdata/spatialdata:v0.7.2'
 
     input:
     tuple val(meta), path(input_image)
 
     output:
     tuple val(meta), path("*_memmappable.ome.tif"), emit: tiff
-    tuple val("${task.process}"), val('container'), val('docker.io/nfdata/cellpose-cuda:v4.0.8-torch2.10.0-cuda12.1.1'), emit: versions_container, topic: versions
+    tuple val("${task.process}"), val('container'), val('docker.io/nfdata/spatialdata:v0.7.2'), emit: versions_container, topic: versions
 
     script:
     def prefix = task.ext.prefix ?: "${meta.id}"

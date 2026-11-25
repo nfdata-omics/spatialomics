@@ -6,56 +6,42 @@ process SPATIALDATA_AUGMENT_WITH_SEGMENTATION {
     container 'docker.io/nfdata/spatialdata:v0.7.2'
 
     input:
-    tuple val(meta), path(zarr_folder), path(segmentation_mask), path(microscopy_image), val(crop_areas)
+    tuple val(meta), path(zarr_folder), path(microscopy_image), path(segmentation_mask, arity: '0..*')
     val zarr_downsample_factor
     val microscopy_preview_max_dimension
     val chunk_size
 
     output:
-    tuple val(meta), path("*_segmentation_microscopy.zarr"), optional: true, emit: zarr
-    tuple val(meta), path("*_crop_segmentation_mqc.png"), emit: crop_segmentation_plot
-    tuple val(meta), path("*_segmentation_stats.csv"), emit: segmentation_stats
+    tuple val(meta), path("*_segmentation_microscopy.zarr"), emit: zarr
     tuple val("${task.process}"), val('container'), val('docker.io/nfdata/spatialdata:v0.7.2'), emit: versions_container, topic: versions
 
     script:
     def prefix = task.ext.prefix ?: "${meta.id}"
     def args = task.ext.args ?: ''
-    def output_zarr_arg = task.ext.save_zarr ? "--output-zarr \"${prefix}_segmentation_microscopy.zarr\"" : ''
-    def crop_areas_arg = crop_areas ? "--crop-areas \"${crop_areas}\"" : ''
+    def mask_arg = segmentation_mask ? "--segmentation-mask-tif \"${segmentation_mask.first()}\"" : ''
     def overwrite_arg = task.ext.overwrite ? '--overwrite' : ''
     """
     export NUMBA_CACHE_DIR=\${TMPDIR:-/tmp}
-    export MPLCONFIGDIR=\${TMPDIR:-/tmp}
-    export XDG_CONFIG_HOME=\${TMPDIR:-/tmp}
-    export XDG_CACHE_HOME=\${TMPDIR:-/tmp}/.cache
-    mkdir -p "\$XDG_CACHE_HOME/fontconfig"
 
     cat << 'END_SCRIPT' > spatialdata_augment_with_segmentation.py
 ${file("${moduleDir}/spatialdata_augment_with_segmentation.py").text}
 END_SCRIPT
 
-    python3 spatialdata_augment_with_segmentation.py \
-        ${args} \
-        --input-zarr "${zarr_folder}" \
-        ${output_zarr_arg} \
-        --sample-name "${prefix}" \
-        --segmentation-mask-tif "${segmentation_mask}" \
-        --microscopy-tif "${microscopy_image}" \
-        --zarr-downsample-factor "${zarr_downsample_factor}" \
-        --microscopy-preview-max-dimension "${microscopy_preview_max_dimension}" \
-        --chunk-size "${chunk_size}" \
-        ${crop_areas_arg} \
-        ${overwrite_arg} \
-        --results-dir "."
+    python3 spatialdata_augment_with_segmentation.py \\
+        ${args} \\
+        --input-zarr "${zarr_folder}" \\
+        --output-zarr "${prefix}_segmentation_microscopy.zarr" \\
+        --sample-name "${meta.id}" \\
+        --microscopy-tif "${microscopy_image}" \\
+        --zarr-downsample-factor "${zarr_downsample_factor}" \\
+        --microscopy-preview-max-dimension "${microscopy_preview_max_dimension}" \\
+        --chunk-size "${chunk_size}" \\
+        ${mask_arg} ${overwrite_arg}
     """
 
     stub:
     def prefix = task.ext.prefix ?: "${meta.id}"
-    def save_zarr = task.ext.save_zarr
     """
-    mkdir -p ${save_zarr ? "${prefix}_segmentation_microscopy.zarr" : "stub_no_zarr"}
-    touch ${prefix}_crop_segmentation_mqc.png
-    touch ${prefix}_segmentation_stats.csv
-
+    mkdir -p "${prefix}_segmentation_microscopy.zarr"
     """
 }

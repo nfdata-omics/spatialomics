@@ -1,5 +1,5 @@
 name: prepare_segmentation_image
-description: Prepare microscopy images as grayscale, uncompressed, contiguous memmappable OME-TIFF files for segmentation
+description: Prepare microscopy images as grayscale, uncompressed, contiguous memmappable OME-TIFF files for SpatialData and segmentation
 keywords:
   - microscopy
   - tiff
@@ -42,7 +42,7 @@ output:
       - container:
           type: string
           description: The runtime environment type
-      - docker.io/nfdata/cellpose-cuda:v4.0.8-torch2.10.0-cuda12.1.1:
+      - docker.io/nfdata/spatialdata:v0.7.2:
           type: string
           description: The Docker image used by the module
 topics:
@@ -53,10 +53,10 @@ topics:
       - container:
           type: string
           description: The runtime environment type
-      - docker.io/nfdata/cellpose-cuda:v4.0.8-torch2.10.0-cuda12.1.1:
+      - docker.io/nfdata/spatialdata:v0.7.2:
           type: string
           description: The Docker image used by the module
 containers:
   docker:
     linux/amd64:
-      name: docker.io/nfdata/cellpose-cuda:v4.0.8-torch2.10.0-cuda12.1.1
+      name: docker.io/nfdata/spatialdata:v0.7.2

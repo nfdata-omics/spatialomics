@@ -11,6 +11,7 @@ include { SPACERANGER_TO_ZARR         } from '../modules/local/spaceranger_to_za
 include { UNTAR as UNTAR_SPACERANGER_OUTS } from '../modules/nf-core/untar/main'
 include { TAR as TAR_RAW               } from '../modules/nf-core/tar/main'
 include { SPATIAL_QUALITY_CONTROL     } from '../modules/local/spatial_quality_control/main'
+include { SPATIAL_QC_PLOTS            } from '../modules/local/spatial_qc_plots/main'
 include { COLLECT_QC                  } from '../modules/local/collect_qc/main'
 include { CELL2LOCATION_REFERENCE     } from '../modules/local/cell2location/reference/main'
 include { CELL2LOCATION_DECONVOLUTION } from '../modules/local/cell2location/deconvolution/main'
@@ -25,6 +26,7 @@ include { COMBINE_ROI_PSEUDOBULK     } from '../modules/local/roi_pseudobulk/com
 include { CELLPOSE_SEGMENTATION       } from '../modules/local/cellpose_segmentation/main'
 include { SKIMAGE_WATERSHED_SEGMENTATION } from '../modules/local/skimage_watershed_segmentation/main'
 include { SPATIALDATA_AUGMENT_WITH_SEGMENTATION } from '../modules/local/spatialdata_augment_with_segmentation/main'
+include { SPATIAL_IMAGE_REPORTS       } from '../modules/local/spatial_image_reports/main'
 include { ASSEMBLE_SPATIAL_MULTIQC    } from '../modules/local/assemble_spatial_multiqc/main'
 include { BIN2CELL                    } from '../modules/local/bin2cell/main'
 
@@ -63,10 +65,16 @@ workflow SPATIALOMICS {
     def ch_multiqc_files = channel.empty()
     def ch_deconvolution_multiqc_plots = channel.empty()
 
+    // Keep plot settings out of the metadata hashed by analytical tasks.
+    ch_crop_areas = ch_samplesheet.mix(ch_spaceranger_outs)
+        .filter { meta, _input -> meta.image }
+        .map { meta, _input -> [meta.id, meta.crop_areas ?: ''] }
+
     // Pre-computed Space Ranger inputs may be supplied either as an existing
     // outs directory or as a .tar.gz archive (including a remote URL). Extract
     // archives once and expose the same [meta, directory] tuple downstream.
     ch_spaceranger_outs
+        .map { meta, outs -> [meta - [crop_areas: meta.crop_areas], outs] }
         .branch { _meta, spaceranger_outs ->
             archive: spaceranger_outs.name.toLowerCase().endsWith('.tar.gz')
             directory: true
@@ -85,7 +93,7 @@ workflow SPATIALOMICS {
     // SUBWORKFLOW: Prepare FastQ files
     //
     PREPARE_FASTQ (
-        ch_samplesheet
+        ch_samplesheet.map { meta, reads -> [meta - [crop_areas: meta.crop_areas], reads] }
     )
     ch_reads = PREPARE_FASTQ.out.reads
     ch_versions = ch_versions.mix(PREPARE_FASTQ.out.versions)
@@ -176,6 +184,12 @@ workflow SPATIALOMICS {
         params.bin_analysis_max_mt
     )
     ch_versions = ch_versions.mix(SPATIAL_QUALITY_CONTROL.out.versions.first())
+
+    SPATIAL_QC_PLOTS (
+        SPATIAL_QUALITY_CONTROL.out.zarr,
+        params.bin_analysis_bin_size
+    )
+    ch_versions = ch_versions.mix(SPATIAL_QC_PLOTS.out.versions.first())
 
     COLLECT_QC (
         SPATIAL_QUALITY_CONTROL.out.annotated_obs.collect{ _meta, path -> path },
@@ -340,31 +354,17 @@ workflow SPATIALOMICS {
         }
         .set { ch_zarr_before_microscopy }
 
-    // Prepare segmentation-specific inputs unless segmentation is being skipped.
+    // Prepare the native-resolution grayscale image once for SpatialData and
+    // for the segmentation consumers that use it.
+    PREPARE_SEGMENTATION_IMAGE (
+        ch_microscopy_images
+    )
+
     if ( params.skip_segmentation ) {
-        ch_segmentation_images = channel.empty()
-        ch_crop_areas = channel.empty()
-    } else {
-        // A missing image is represented by an empty path value inside an emitted tuple,
-        // not by an empty channel. Remove those tuples so image-dependent processes are
-        // skipped idiomatically for samples without a microscopy image.
-        ch_segmentation_images = ch_microscopy_images
-        ch_reads.map { meta, _fastq -> [["id": meta.id], meta.crop_areas ] }
-            .mix ( ch_prepared_spaceranger_outs.map { meta, _out -> [["id": meta.id], meta.crop_areas ] } )
-            .set { ch_crop_areas }
-    }
-
-    // Select one segmentation backend while exposing the same mask and source-image
-    // channels to all downstream modules.
-    if ( params.segmentation_method == 'cellpose' ) {
-
-        // Prepare grayscale memmappable OME-TIFF images for Cellpose and downstream use.
-        PREPARE_SEGMENTATION_IMAGE(
-            ch_segmentation_images
-        )
-
+        ch_segmentation_masks = channel.empty()
+    } else if ( params.segmentation_method == 'cellpose' ) {
         PREPARE_SEGMENTATION_IMAGE.out.tiff
-            .join(EXTRACT_VISIUM_REGION.out.bounds)
+            .join(EXTRACT_VISIUM_REGION.out.bounds, failOnMismatch: true)
             .set { ch_cellpose_inputs }
 
         CELLPOSE_SEGMENTATION (
@@ -372,65 +372,84 @@ workflow SPATIALOMICS {
         )
         ch_versions = ch_versions.mix(CELLPOSE_SEGMENTATION.out.versions.first())
         ch_segmentation_masks = CELLPOSE_SEGMENTATION.out.mask
-        ch_segmentation_source_images = PREPARE_SEGMENTATION_IMAGE.out.tiff
-
     } else if ( params.segmentation_method == 'skimage_watershed' ) {
-
-        // Segment the RGB source directly using H&E deconvolution and watershed.
-        // The module also emits the grayscale memmappable TIFF required downstream.
-        ch_segmentation_images
-            .join(EXTRACT_VISIUM_REGION.out.bounds)
+        // Watershed needs the colour image for H&E deconvolution.
+        ch_microscopy_images
+            .join(EXTRACT_VISIUM_REGION.out.bounds, failOnMismatch: true)
             .set { ch_skimage_watershed_inputs }
 
         SKIMAGE_WATERSHED_SEGMENTATION (
             ch_skimage_watershed_inputs
         )
         ch_segmentation_masks = SKIMAGE_WATERSHED_SEGMENTATION.out.mask
-        ch_segmentation_source_images = SKIMAGE_WATERSHED_SEGMENTATION.out.tiff
-
     } else {
         error "Unsupported segmentation method '${params.segmentation_method}'. Use 'cellpose' or 'skimage_watershed'."
     }
 
-    //
-    // MODULE: Augment SpatialData with segmentation and microscopy layers
-    //
-
+    // Pair each selected Zarr with the prepared grayscale TIFF or the
+    // samplesheet's empty image value. Preserve the selected Zarr's metadata.
+    ch_assembly_microscopy = PREPARE_SEGMENTATION_IMAGE.out.tiff.mix(
+        ch_prepared_microscopy_images.filter { _meta, image -> !image }
+    )
     ch_zarr_before_microscopy
-        .map { meta, zarr -> [["id": meta.id], zarr] }
-        .join(ch_segmentation_masks)
-        .join(ch_segmentation_source_images)
-        .join(ch_crop_areas)
-        .set { ch_spatialdata_augment_with_segmentation_inputs }
+        .map { meta, zarr -> [meta.id, meta, zarr] }
+        .join(
+            ch_assembly_microscopy.map { meta, image -> [meta.id, image] },
+            failOnDuplicate: true,
+            failOnMismatch: true
+        )
+        .branch { id, meta, zarr, image ->
+            with_he: image
+                return [id, meta, zarr, image]
+            without_he: true
+                return [meta, zarr]
+        }
+        .set { ch_zarr_by_image }
+
+    if ( params.skip_segmentation ) {
+        ch_assembly_inputs = ch_zarr_by_image.with_he.map { _id, meta, zarr, image ->
+            [meta, zarr, image, []]
+        }
+    } else {
+        ch_assembly_inputs = ch_zarr_by_image.with_he
+            .join(
+                ch_segmentation_masks.map { meta, mask -> [meta.id, mask] },
+                failOnDuplicate: true,
+                failOnMismatch: true
+            )
+            .map { _id, meta, zarr, image, mask -> [meta, zarr, image, [mask]] }
+    }
 
     SPATIALDATA_AUGMENT_WITH_SEGMENTATION (
-        ch_spatialdata_augment_with_segmentation_inputs,
+        ch_assembly_inputs,
         params.zarr_downsample_factor,
         params.microscopy_preview_max_dimension,
         2048
     )
 
-    // Select the most advanced SpatialData available for every sample. Samples
-    // without microscopy augmentation retain the selected upstream Zarr.
-    ch_zarr_before_microscopy
+    ch_final_zarr = SPATIALDATA_AUGMENT_WITH_SEGMENTATION.out.zarr.mix(ch_zarr_by_image.without_he)
+
+    SPATIALDATA_AUGMENT_WITH_SEGMENTATION.out.zarr
         .map { meta, zarr -> [meta.id, meta, zarr] }
-        .join(
-            SPATIALDATA_AUGMENT_WITH_SEGMENTATION.out.zarr
-                .map { meta, zarr -> [meta.id, zarr] },
-            remainder: true
-        )
-        .map { _id, meta, input_zarr, augmented_zarr = null ->
-            [meta, augmented_zarr ?: input_zarr]
-        }
-        .set { ch_final_zarr }
+        .join(ch_crop_areas, failOnDuplicate: true, failOnMismatch: true)
+        .map { _id, meta, zarr, crop_areas -> [meta, zarr, crop_areas] }
+        .set { ch_spatial_image_reports_inputs }
+
+    SPATIAL_IMAGE_REPORTS (
+        ch_spatial_image_reports_inputs,
+        params.bin_analysis_bin_size,
+        params.zarr_downsample_factor,
+        2048,
+        !params.skip_segmentation
+    )
 
     //
     // MODULE: Assemble the available per-sample spatial plots for MultiQC
     //
 
-    SPATIAL_QUALITY_CONTROL.out.mqc_plot
-        .mix(SPATIAL_QUALITY_CONTROL.out.registration_plot)
-        .mix(SPATIALDATA_AUGMENT_WITH_SEGMENTATION.out.crop_segmentation_plot)
+    SPATIAL_QC_PLOTS.out.mqc_plot
+        .mix(SPATIAL_IMAGE_REPORTS.out.registration_plot)
+        .mix(SPATIAL_IMAGE_REPORTS.out.crop_segmentation_plot)
         .mix(IMPORT_ROI_ANNOTATIONS.out.roi_plot)
         .mix(ch_deconvolution_multiqc_plots)
         .map { meta, plot -> [meta.id, meta, plot] }
@@ -442,19 +461,19 @@ workflow SPATIALOMICS {
         ch_spatial_multiqc_inputs
     )
     ch_multiqc_files = ch_multiqc_files.mix(ASSEMBLE_SPATIAL_MULTIQC.out.html.collect{ _meta, path -> path })
-    ch_multiqc_files = ch_multiqc_files.mix(SPATIALDATA_AUGMENT_WITH_SEGMENTATION.out.segmentation_stats.collect{ _meta, paths -> paths })
+    ch_multiqc_files = ch_multiqc_files.mix(SPATIAL_IMAGE_REPORTS.out.segmentation_stats.collect{ _meta, paths -> paths })
 
     //
     // MODULE: Aggregate Visium HD bins into cell-level AnnData with Bin2Cell
     //
 
-    if ( params.skip_bin2cell ) {
+    if ( params.skip_segmentation || params.skip_bin2cell ) {
         ch_bin2cell_inputs = channel.empty()
     } else {
         ch_all_spaceranger_outs
             .map { meta, outs -> [["id": meta.id], outs] }
             .join(ch_segmentation_masks)
-            .join(ch_segmentation_source_images)
+            .join(PREPARE_SEGMENTATION_IMAGE.out.tiff)
             .set { ch_bin2cell_inputs }
     }
 

@@ -7,11 +7,7 @@ dependencies:
   - python=3.11
   - anndata>=0.11
   - dask
-  - geopandas
-  - matplotlib-base
-  - pyyaml
-  - shapely
+  - numpy
   - spatialdata
-  - spatialdata-plot
   - tifffile
   - xarray

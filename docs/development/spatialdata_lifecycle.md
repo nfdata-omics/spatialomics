@@ -25,6 +25,9 @@ Relevant implementation files are:
 
 ## Lifecycle and canonical selection
 
+The final assembly and reporting contracts are specified in
+[Final SpatialData assembly and spatial reporting](spatialdata_assembly_and_reporting.md).
+
 Each sample has one logical SpatialData lineage. Transformations write new Zarr
 directories rather than modifying an upstream task output in place:
 
@@ -44,7 +47,7 @@ QC-annotated SpatialData
         ROI annotation augmentation, when supplied
                        |
                        v
-        segmentation and microscopy augmentation, when available
+        samplesheet microscopy and optional segmentation assembly
                        |
                        v
         final published SpatialData directory
@@ -66,9 +69,10 @@ version available for that sample:
 4. `IMPORT_ROI_ANNOTATIONS` augments the QC or Cell2location version for
    samples with a matching GeoJSON, capture-area crop and coordinate TSV.
    Unannotated samples retain the preceding version.
-5. `SPATIALDATA_AUGMENT_WITH_SEGMENTATION` replaces the preceding version for
-   samples with the required segmentation inputs. Other samples retain the
-   preceding version through a keyed join with `remainder: true`.
+5. `SPATIALDATA_AUGMENT_WITH_SEGMENTATION` writes the final version for
+   samples with a samplesheet H&E, adding the native-resolution microscopy
+   and its reduced preview. It adds segmentation labels when a mask is
+   generated. Samples without a samplesheet H&E retain the preceding Zarr.
 6. The workflow publishes exactly the selected final version.
 
 Optional branches are associated by sample ID. Channel emission order must
@@ -81,8 +85,9 @@ modify the final SpatialData lineage.
 
 ROI aggregation reads the annotated SpatialData before microscopy augmentation.
 The segmentation backend produces masks independently of ROI import and
-pseudobulk. Only the final augmentation consumes both the selected Zarr and
-the segmentation products.
+pseudobulk. Final assembly consumes the selected Zarr, the prepared microscopy
+image and any generated mask. Reporting reads the resulting Zarr as an
+immutable input.
 
 ## Storage and publication contract
 

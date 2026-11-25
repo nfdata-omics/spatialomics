@@ -1,0 +1,48 @@
+name: spatial_qc_plots
+description: Render per-sample bin QC distributions and spatial maps
+keywords:
+  - spatialdata
+  - quality control
+  - multiqc
+tools:
+  - spatialdata-plot:
+      description: Plotting utilities for SpatialData objects.
+      homepage: https://spatialdata.scverse.org/projects/plot/
+      licence: ["BSD-3-Clause"]
+input:
+  - - meta:
+        type: map
+        description: Sample metadata containing the sample ID
+    - zarr_folder:
+        type: directory
+        description: QC-annotated SpatialData Zarr
+        pattern: "*.zarr"
+  - resolution:
+      type: string
+      description: Key of the QC-annotated Visium bin table
+output:
+  versions:
+    - versions.yml:
+        type: file
+        description: Versions of the tools used
+        pattern: "versions.yml"
+  distributions:
+    - - meta:
+          type: map
+          description: Sample metadata containing the sample ID
+      - "*_qc_distributions.png":
+          type: file
+          description: Per-sample QC distributions
+          pattern: "*_qc_distributions.png"
+  mqc_plot:
+    - - meta:
+          type: map
+          description: Sample metadata containing the sample ID
+      - "*_qc_mqc.webp":
+          type: file
+          description: Spatial QC comparison of in-tissue and QC-passing bins
+          pattern: "*_qc_mqc.webp"
+containers:
+  docker:
+    linux/amd64:
+      name: docker.io/nfdata/spatialdata:v0.7.2

@@ -16,9 +16,6 @@ process SPATIAL_QUALITY_CONTROL {
     tuple val(meta), path("*_qc.zarr"),              emit: zarr
     tuple val(meta), path("*_qc_annotated_obs.csv"), emit: annotated_obs
     tuple val(meta), path("*_qc_metrics.csv"),       emit: metrics
-    tuple val(meta), path("*_qc_distributions.png"), emit: distributions
-    tuple val(meta), path("*_qc_mqc.webp"),           emit: mqc_plot
-    tuple val(meta), path("*_registration_tissue_mqc.webp"), emit: registration_plot
 
     script:
     def prefix = task.ext.prefix ?: "${meta.id}"
@@ -42,8 +39,6 @@ END_SCRIPT
         --min-genes "${min_genes}" \
         --max-mt "${max_mt}"
 
-    mv ${prefix}_qc_spatial_plots.webp ${prefix}_qc_mqc.webp
-
     python3 spatial_quality_control.py \
         --versions-dict "${task.process}" > versions.yml
     """
@@ -64,10 +59,6 @@ END_SCRIPT
     mkdir -p ${prefix}_${resolution}_qc.zarr
     touch ${prefix}_qc_annotated_obs.csv
     touch ${prefix}_qc_metrics.csv
-    touch ${prefix}_qc_distributions.png
-    touch ${prefix}_qc_mqc.webp
-    touch ${prefix}_registration_tissue_mqc.webp
-
     python3 spatial_quality_control.py \
         --versions-dict "${task.process}" > versions.yml
     """

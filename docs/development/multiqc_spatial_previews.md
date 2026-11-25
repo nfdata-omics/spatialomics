@@ -2,6 +2,9 @@
 
 ## Objective and scope
 
+The H&E source and reporting task boundaries are
+specified in [Final SpatialData assembly and spatial reporting](spatialdata_assembly_and_reporting.md).
+
 Define the compact per-sample spatial previews included in MultiQC. These
 figures support rapid quality review; they are not archival or detailed image
 outputs. The underlying analytical results remain in the published SpatialData
@@ -22,7 +25,8 @@ Relevant implementation files are:
 - [`workflows/spatialomics.nf`](../../workflows/spatialomics.nf);
 - [`modules/local/spaceranger_to_zarr/`](../../modules/local/spaceranger_to_zarr/);
 - [`modules/local/assemble_spatial_multiqc/`](../../modules/local/assemble_spatial_multiqc/);
-- [`modules/local/spatial_quality_control/`](../../modules/local/spatial_quality_control/);
+- [`modules/local/spatial_qc_plots/`](../../modules/local/spatial_qc_plots/);
+- [`modules/local/spatial_image_reports/`](../../modules/local/spatial_image_reports/);
 - [`modules/local/spatialdata_augment_with_segmentation/`](../../modules/local/spatialdata_augment_with_segmentation/);
 - [`modules/local/cell2location/plots/`](../../modules/local/cell2location/plots/);
 - [`assets/multiqc_config.yml`](../../assets/multiqc_config.yml).
@@ -104,7 +108,7 @@ Ranger QC images.
 
 The registration panel is a composite in the sample coordinate system:
 
-1. the microscopy H&E image shown in grayscale as the base layer;
+1. the reduced grayscale H&E from the samplesheet, read from the final Zarr;
 2. the registered CytAssist image shown with a strong pseudocolor and partial
    transparency so tissue agreement and disagreement are immediately visible;
 3. the capture-area boundary shown as an unfilled, high-contrast outline.
@@ -263,8 +267,9 @@ decision. The implementation:
 
 - conditionally imports the registered CytAssist layer and preserves a compact
   capture-area geometry during Space Ranger ingestion;
-- produces registration/tissue-selection and 3-by-2 spatial-QC previews during
-  spatial QC, independently of segmentation;
+- renders registration and tissue selection from the assembled Zarr for
+  samples with a samplesheet H&E;
+- renders the 3-by-2 spatial QC preview from the QC-annotated Zarr;
 - replaces the two crop/segmentation previews with one row-oriented preview;
 - regularizes the Cell2location preview and adds its abundance colorbar;
 - updates workflow channels, module metadata, MultiQC assembly and user-facing
@@ -277,13 +282,13 @@ The production report was inspected statically to quantify report size,
 embedded image payloads and decoded pixel buffers. Existing representative
 figures were inspected to establish the presentation problems.
 
-The raw and augmented mock SpatialData Zarr metadata were inspected directly:
+Before registered CytAssist ingestion was enabled, the raw and augmented mock SpatialData Zarr metadata were inspected directly:
 
 - the raw conversion contains high- and low-resolution tissue images but no
-  CytAssist image layer with the current default reader arguments;
+  CytAssist image layer with the reader arguments used at that time;
 - the augmentation adds full and downsampled microscopy layers in the sample
   coordinate system;
-- the current registration figure therefore compares two representations of
+- the registration figure at that stage compared two representations of
   the microscopy image rather than microscopy and CytAssist modalities.
 
 The Space Ranger mock `feature_slice.h5` metadata contains all four
