@@ -1,7 +1,7 @@
-include { SC_PREPROCESS_QC        } from '../../../modules/sc_preprocess/qc'
-include { SC_PREPROCESS_NORMALIZE } from '../../../modules/sc_preprocess/normalize'
-include { SC_PREPROCESS_HVG       } from '../../../modules/sc_preprocess/hvg'
-include { SC_PREPROCESS_PCA       } from '../../../modules/sc_preprocess/pca'
+include { SC_PREPROCESS_QC        } from '../../../modules/local/sc_preprocess/qc'
+include { SC_PREPROCESS_NORMALIZE } from '../../../modules/local/sc_preprocess/normalize'
+include { SC_PREPROCESS_HVG       } from '../../../modules/local/sc_preprocess/hvg'
+include { SC_PREPROCESS_PCA       } from '../../../modules/local/sc_preprocess/pca'
 
 workflow PSEUDOBULK_PREPROCESS {
     take:
