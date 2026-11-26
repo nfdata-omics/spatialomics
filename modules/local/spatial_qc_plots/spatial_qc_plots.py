@@ -94,7 +94,7 @@ def save_spatial_qc_preview(sdata, adata, sample_id, resolution, output_path):
                     vmax = vmin + 1
             else:
                 vmin, vmax = 0.0, 1.0
-            norm = Normalize(vmin=vmin, vmax=vmax)
+            norm = Normalize(vmin=vmin, vmax=vmax, clip=True)
             row_plot_top = plot_top_px + row * row_pitch_px
 
             for col, (column_title, column) in enumerate((
