@@ -6,9 +6,13 @@ channels:
 dependencies:
   - python=3.11
   - geopandas
+  - h5py
   - matplotlib-base
   - numpy
+  - pandas
   - pillow
+  - pyarrow
+  - scikit-image >=0.26
   - shapely
   - spatialdata
   - spatialdata-plot

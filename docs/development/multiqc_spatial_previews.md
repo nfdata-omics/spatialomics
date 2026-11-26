@@ -143,21 +143,22 @@ The pinned `spatialdata_io.visium_hd()` reader already consumes these matrices.
 With `load_all_images=True`, it loads `spatial/cytassist_image.tiff`, composes
 the CytAssist-to-spot and spot-to-microscope transformations, performs the
 required projective resampling and adds `<sample>_cytassist_image` to
-SpatialData with a transformation into the sample coordinate system. Ingestion
-projects the original TIFF corners using the same composed transform and
-stores the polygon as `<sample>_cytassist_footprint` in sample coordinates.
-The report uses that polygon to clip the CytAssist overlay, preserving dark
-pixels within its footprint. Reporting consumes the SpatialData layers and
-transformations. Older Zarrs require regenerated ingestion for the oriented
-outline and footprint clipping.
+SpatialData with a transformation into the sample coordinate system. The final
+report receives the assembled Zarr and matching Space Ranger output by sample
+ID. It projects the original `spatial/cytassist_image.tiff` corners using the
+same composed transform and clips the overlay to that polygon in memory.
+This preserves dark pixels within the footprint and allows existing Zarrs to
+be reused for reporting.
 
 Because the filtered expression matrix contains only included bins, their
-bounds do not necessarily represent the full capture area. Ingestion therefore
-derives one compact `<sample>_capture_area` polygon from the complete 16 µm
+bounds do not necessarily represent the full capture area. The final image
+report derives an oriented polygon from the complete 16 µm
 `tissue_positions.parquet` grid. The corner bin centers define the projective
 map from array indices to sample coordinates. Projecting the four outer
 corners at half-bin offsets preserves the capture area's orientation and
-skew, including when CytAssist registration is unavailable.
+skew, including when CytAssist registration is unavailable. The final image
+report uses this geometry in memory. The separate spatial QC preview uses the
+capture-area bounds already stored in the Zarr.
 
 The tissue-detection panel shows the H&E image cropped to the capture area,
 with the bins classified as `in_tissue=1` by Space Ranger rendered as a
@@ -268,10 +269,10 @@ Implemented, except for the explicitly open raster-encoding decision and the
 MultiQC AI-metadata behavior that requires an upstream release or a separate
 decision. The implementation:
 
-- conditionally imports the registered CytAssist layer and preserves a compact
-  capture-area geometry during Space Ranger ingestion;
-- renders registration and tissue selection from the assembled Zarr for
-  samples with a samplesheet H&E;
+- conditionally imports the registered CytAssist layer and preserves a
+  capture-area bounding box during Space Ranger ingestion;
+- renders registration and tissue selection for samples with a samplesheet H&E,
+  computing the oriented capture area and CytAssist footprint at report time;
 - renders the 3-by-2 spatial QC preview from the QC-annotated Zarr;
 - replaces the two crop/segmentation previews with one row-oriented preview;
 - regularizes the Cell2location preview and adds its abundance colorbar;
@@ -332,6 +333,12 @@ viewport, capture-area QC bounds and below-panel colorbars/legends) has been
 implemented and checked for Python syntax and imports in the pinned project
 container. The previews have not been regenerated or visually inspected after
 this refinement, and no Nextflow or stub run was performed.
+
+After moving geometry into the final report, a focused local check used an
+existing mock Zarr and synthetic Space Ranger geometry. It verified the
+oriented corners, CytAssist clipping, and rendering when only a binned TIFF is
+available. Segmentation statistics matched the baseline and Zarr metadata
+checksums were identical before and after rendering. Nextflow lint passed.
 
 The official MultiQC AI documentation and the source code in the pinned 1.34
 container were inspected. The documented `no_ai` option removes the AI user

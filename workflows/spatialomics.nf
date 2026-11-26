@@ -432,7 +432,13 @@ workflow SPATIALOMICS {
     SPATIALDATA_AUGMENT_WITH_SEGMENTATION.out.zarr
         .map { meta, zarr -> [meta.id, meta, zarr] }
         .join(ch_crop_areas, failOnDuplicate: true, failOnMismatch: true)
-        .map { _id, meta, zarr, crop_areas -> [meta, zarr, crop_areas] }
+        // Every assembled Zarr originates from these outs. Samples without H&E have no report.
+        .join(
+            ch_all_spaceranger_outs.map { meta, outs -> [meta.id, outs] },
+            failOnDuplicate: true,
+            failOnMismatch: false
+        )
+        .map { _id, meta, zarr, crop_areas, outs -> [meta, zarr, crop_areas, outs] }
         .set { ch_spatial_image_reports_inputs }
 
     SPATIAL_IMAGE_REPORTS (

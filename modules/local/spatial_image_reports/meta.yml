@@ -21,6 +21,9 @@ input:
     - crop_areas:
         type: string
         description: Optional crop areas as x0:y0:x1:y1[;x0:y0:x1:y1] in sample coordinates
+    - spaceranger_outs:
+        type: directory
+        description: Space Ranger output for the same sample, used to derive report geometry
   - resolution:
       type: string
       description: Key of the annotated Visium bin table for tissue selection

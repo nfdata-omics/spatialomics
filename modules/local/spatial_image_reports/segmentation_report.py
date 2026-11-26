@@ -361,14 +361,10 @@ def save_result_plots(
     segmentation_key,
     microscopy_key,
     microscopy_downsampled_key,
+    capture_area_bounds,
 ):
     """Save the combined crop-location and segmentation-review preview."""
-    capture_key = f"{sample_name}_capture_area"
-
-    if capture_key not in sdata:
-        raise ValueError(f"Required SpatialData element '{capture_key}' not found")
-
-    minx, miny, maxx, maxy = sdata.shapes[capture_key].total_bounds
+    minx, miny, maxx, maxy = capture_area_bounds
     capture_area = CropArea(x0=minx, y0=miny, x1=maxx, y1=maxy)
     if crop_areas is None:
         crop_areas = [capture_area]

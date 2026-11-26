@@ -59,7 +59,7 @@ version available for that sample:
 1. `SPACERANGER_TO_ZARR` creates the raw SpatialData from Space Ranger output,
    including the registered CytAssist image when Space Ranger provides both the
    image and complete transformation matrices. It also preserves a compact
-   capture-area polygon derived from the complete 16 µm position grid.
+   capture-area bounding box derived from the complete 16 µm position grid.
 2. `SPATIAL_QUALITY_CONTROL` creates the mandatory QC-annotated version used by
    downstream analyses.
 3. `CELL2LOCATION_DECONVOLUTION` trains one joint spatial model when a single-cell

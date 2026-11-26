@@ -6,7 +6,7 @@ process SPATIAL_IMAGE_REPORTS {
     container 'docker.io/nfdata/spatialdata:v0.7.2'
 
     input:
-    tuple val(meta), path(zarr_folder), val(crop_areas)
+    tuple val(meta), path(zarr_folder), val(crop_areas), path(spaceranger_outs, stageAs: 'spaceranger/*')
     val resolution
     val zarr_downsample_factor
     val chunk_size
@@ -41,6 +41,7 @@ END_SCRIPT
 
     python3 spatial_image_reports.py \\
         --zarr "${zarr_folder}" \\
+        --spaceranger-outs "${spaceranger_outs}" \\
         --sample "${meta.id}" \\
         --resolution "${resolution}" \\
         --zarr-downsample-factor "${zarr_downsample_factor}" \\
