@@ -16,7 +16,8 @@ process SC_PREPROCESS_HVG {
     def args = task.ext.args ?: ''
     def top_genes_arg = n_top_genes == '' ? '' : "--n-top-genes ${n_top_genes.toString().toBigInteger()}"
     """
-    export NUMBA_CACHE_DIR=/tmp
+    NUMBA_CACHE_DIR=\$(mktemp -d "\$PWD/.numba-cache.XXXXXX")
+    export NUMBA_CACHE_DIR
     export MPLCONFIGDIR=/tmp
     export XDG_CONFIG_HOME=/tmp
 

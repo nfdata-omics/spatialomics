@@ -14,7 +14,8 @@ process SC_PREPROCESS_NORMALIZE {
     script:
     def args = task.ext.args ?: ''
     """
-    export NUMBA_CACHE_DIR=/tmp
+    NUMBA_CACHE_DIR=\$(mktemp -d "\$PWD/.numba-cache.XXXXXX")
+    export NUMBA_CACHE_DIR
     export MPLCONFIGDIR=/tmp
     export XDG_CONFIG_HOME=/tmp
 

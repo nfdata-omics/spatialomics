@@ -21,7 +21,8 @@ process SC_PREPROCESS_PCA {
     def args = task.ext.args ?: ''
     def quoted_color = color.toString().replace("'", "'\"'\"'")
     """
-    export NUMBA_CACHE_DIR=/tmp
+    NUMBA_CACHE_DIR=\$(mktemp -d "\$PWD/.numba-cache.XXXXXX")
+    export NUMBA_CACHE_DIR
     export MPLCONFIGDIR=/tmp
     export XDG_CONFIG_HOME=/tmp
 
