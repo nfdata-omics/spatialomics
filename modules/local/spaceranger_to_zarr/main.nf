@@ -30,10 +30,13 @@ process SPACERANGER_TO_ZARR {
     import pkg_resources
     import geopandas as gpd
     import h5py
+    import numpy as np
     import pandas as pd
     import yaml
     import spatialdata_io
-    from shapely.geometry import box
+    from PIL import Image
+    from shapely.geometry import Polygon
+    from skimage.transform import ProjectiveTransform
     from spatialdata.models import ShapesModel
     from spatialdata.transformations import Identity
 
@@ -76,12 +79,14 @@ process SPACERANGER_TO_ZARR {
         and has_nine_values(transform_matrices[key])
         for key in required_transform_keys
     )
-    has_cytassist_image = any(spaceranger_path.rglob("cytassist_image.tiff"))
-    load_registered_cytassist = has_cytassist_image and has_registration_matrices
+    cytassist_paths = list(spaceranger_path.rglob("cytassist_image.tiff"))
+    load_registered_cytassist = bool(cytassist_paths) and has_registration_matrices
+    if load_registered_cytassist and len(cytassist_paths) != 1:
+        raise ValueError(f"Expected one CytAssist TIFF for ${prefix}, found {len(cytassist_paths)}")
     if not load_registered_cytassist:
         print(
             "Registered CytAssist image will not be loaded: "
-            f"image present={has_cytassist_image}, "
+            f"image present={bool(cytassist_paths)}, "
             f"complete registration matrices={has_registration_matrices}"
         )
 
@@ -92,6 +97,29 @@ process SPACERANGER_TO_ZARR {
         load_segmentations_only=False,
         load_all_images=load_registered_cytassist
     )
+
+    def store_footprint(name, vertices):
+        polygon = Polygon(vertices)
+        if not polygon.is_valid or polygon.area <= 0:
+            raise ValueError(f"Invalid {name} polygon for ${prefix}")
+        data.shapes[f"${prefix}_{name}"] = ShapesModel.parse(
+            gpd.GeoDataFrame(geometry=[polygon]),
+            transformations={"${prefix}": Identity()},
+        )
+
+    if load_registered_cytassist:
+        # Project the original TIFF support. The registered raster can include
+        # fill pixels outside this polygon after resampling.
+        with Image.open(cytassist_paths[0]) as image:
+            width, height = image.size
+        cytassist_to_array = np.asarray(transform_matrices["cytassist_colrow_to_spot_colrow"]).reshape(3, 3)
+        array_to_microscope = np.asarray(transform_matrices["spot_colrow_to_microscope_colrow"]).reshape(3, 3)
+        cytassist_to_microscope = ProjectiveTransform(array_to_microscope @ cytassist_to_array)
+        corners = [
+            (-0.5, -0.5), (width - 0.5, -0.5),
+            (width - 0.5, height - 0.5), (-0.5, height - 0.5),
+        ]
+        store_footprint("cytassist_footprint", cytassist_to_microscope(corners))
 
     # The filtered count matrix contains only bins selected as in-tissue, so
     # their bounds cannot define the complete capture area. Preserve one compact
@@ -104,33 +132,34 @@ process SPACERANGER_TO_ZARR {
         / "spatial"
     )
     positions_path = bin_spatial_dir / "tissue_positions.parquet"
-    scalefactors_path = bin_spatial_dir / "scalefactors_json.json"
-    if not positions_path.exists() or not scalefactors_path.exists():
-        raise FileNotFoundError(
-            "Cannot construct the Visium HD capture-area geometry: expected "
-            f"{positions_path} and {scalefactors_path}"
-        )
+    if not positions_path.exists():
+        raise FileNotFoundError(f"Cannot construct the Visium HD capture area without {positions_path}")
 
     positions = pd.read_parquet(
         positions_path,
-        columns=["pxl_col_in_fullres", "pxl_row_in_fullres"],
-    )
+        columns=["array_col", "array_row", "pxl_col_in_fullres", "pxl_row_in_fullres"],
+    ).set_index(["array_col", "array_row"])
     if positions.empty:
         raise ValueError(f"Space Ranger tissue positions are empty: {positions_path}")
 
-    with scalefactors_path.open() as handle:
-        scalefactors = json.load(handle)
-    half_bin_width = float(scalefactors["spot_diameter_fullres"]) / 2.0
-    capture_area = box(
-        positions["pxl_col_in_fullres"].min() - half_bin_width,
-        positions["pxl_row_in_fullres"].min() - half_bin_width,
-        positions["pxl_col_in_fullres"].max() + half_bin_width,
-        positions["pxl_row_in_fullres"].max() + half_bin_width,
-    )
-    capture_area_gdf = gpd.GeoDataFrame(geometry=[capture_area])
-    data.shapes["${prefix}_capture_area"] = ShapesModel.parse(
-        capture_area_gdf,
-        transformations={"${prefix}": Identity()},
+    # Use the four corner bin centers to map array indices into image
+    # coordinates, then extend by half a bin in array space.
+    cols = positions.index.get_level_values("array_col")
+    rows = positions.index.get_level_values("array_row")
+    left, right, top, bottom = cols.min(), cols.max(), rows.min(), rows.max()
+    center_indices = [(left, top), (right, top), (right, bottom), (left, bottom)]
+    corner_positions = positions.reindex(center_indices)
+    if corner_positions.isna().any().any() or left == right or top == bottom:
+        raise ValueError(f"Expected four distinct corner bin centers in {positions_path}")
+    bins_to_image = ProjectiveTransform.from_estimate(center_indices, corner_positions.to_numpy())
+    if not bins_to_image:
+        raise ValueError(f"Cannot project the capture-area corners from {positions_path}")
+    store_footprint(
+        "capture_area",
+        bins_to_image([
+            (left - 0.5, top - 0.5), (right + 0.5, top - 0.5),
+            (right + 0.5, bottom + 0.5), (left - 0.5, bottom + 0.5),
+        ]),
     )
 
     # ----------------------------------

@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import spatialdata as sd
 import spatialdata_plot  # noqa: F401
 from matplotlib.colors import LinearSegmentedColormap
+from matplotlib.patches import Polygon
 from spatialdata.models import Image2DModel, get_table_keys
 from spatialdata.transformations import get_transformation
 
@@ -51,6 +52,7 @@ def save_registration_tissue_preview(sdata, sample_id, resolution, preview_key, 
     """Show the original Space Ranger selection and, where available, registration."""
     capture_key = f"{sample_id}_capture_area"
     cytassist_key = f"{sample_id}_cytassist_image"
+    cytassist_footprint_key = f"{sample_id}_cytassist_footprint"
     square_key = f"{sample_id}_{resolution}"
     capture = sdata.shapes[capture_key]
     preview = sdata.images[preview_key]
@@ -86,16 +88,29 @@ def save_registration_tissue_preview(sdata, sample_id, resolution, preview_key, 
                 shapes={capture_key: capture},
             )
             cytassist_cmap = LinearSegmentedColormap.from_list(
-                "cytassist_magenta", ["#000000", "#ff00ff"]
+                "cytassist_magenta", ["#7600c8", "#d000ff", "#ff5ad9", "#fff0fa"]
             )
             overview.pl.render_images(
                 preview_key, cmap="gray", colorbar=False,
             ).pl.render_images(
-                cytassist_key, cmap=cytassist_cmap, alpha=0.45, colorbar=False,
+                cytassist_key, cmap=cytassist_cmap, alpha=0.55, colorbar=False,
             ).pl.render_shapes(
                 capture_key, fill_alpha=0, outline_color="#39ff14", outline_width=2,
                 outline_alpha=1,
             ).pl.show(coordinate_systems=sample_id, ax=axes[0], colorbar=False)
+            if cytassist_footprint_key in sdata.shapes:
+                footprint = sdata.shapes[cytassist_footprint_key].geometry.iloc[0]
+                # SpatialData Plot draws the H&E and CytAssist image artists in
+                # layer order. The footprint is stored in sample coordinates.
+                axes[0].images[-1].set_clip_path(
+                    Polygon(footprint.exterior.coords, transform=axes[0].transData)
+                )
+            else:
+                print(
+                    f"Registered CytAssist footprint '{cytassist_footprint_key}' is missing for "
+                    f"{sample_id}; regenerate the Space Ranger SpatialData Zarr to remove "
+                    "pixels outside the CytAssist image"
+                )
             extent = sd.get_extent(preview, coordinate_system=sample_id)
             viewport = (extent["x"][0], extent["y"][0], extent["x"][1], extent["y"][1])
             preview_finish_map_axis(axes[0], panel_boxes[0], viewport)
@@ -108,7 +123,7 @@ def save_registration_tissue_preview(sdata, sample_id, resolution, preview_key, 
         layers = tissue.pl.render_images(preview_key, cmap="gray", colorbar=False)
         if not tissue_shapes.empty:
             layers = layers.pl.render_shapes(
-                square_key, color="#00d5ff", fill_alpha=0.35, outline_width=0,
+                square_key, color="#00d5ff", fill_alpha=0.45, outline_width=0,
             )
         layers.pl.render_shapes(
             capture_key, fill_alpha=0, outline_color="#ffffff", outline_width=1.5,

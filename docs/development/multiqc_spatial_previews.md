@@ -109,15 +109,14 @@ Ranger QC images.
 The registration panel is a composite in the sample coordinate system:
 
 1. the reduced grayscale H&E from the samplesheet, read from the final Zarr;
-2. the registered CytAssist image shown with a strong pseudocolor and partial
-   transparency so tissue agreement and disagreement are immediately visible;
-3. the capture-area boundary shown as an unfilled, high-contrast outline.
+2. the registered CytAssist image shown in purple and pale pink at 55%
+   opacity, with full transparency outside the registered image footprint;
+3. the oriented capture-area perimeter shown as an unfilled green outline.
 
 Its viewport is the complete transformed H&E image extent, including H&E
-regions outside the capture area. The transformed CytAssist layer and the
-capture-area outline are overlaid within that viewport and clipped only at the
-H&E image boundary; neither the capture-area bounds nor the CytAssist bounds
-may be used to crop the panel.
+regions outside the capture area. The CytAssist footprint clips the
+CytAssist layer within that viewport. The viewport remains the full H&E
+extent.
 
 The panel must use image layers and transformations declared in SpatialData. It
 must not read a rendered Space Ranger QC image or infer a transform from image
@@ -129,6 +128,7 @@ The required general input contract is therefore:
 - a microscopy image layer transformed into the sample coordinate system;
 - a distinct CytAssist/reference image layer transformed into the same sample
   coordinate system;
+- a polygon for the valid CytAssist image footprint in sample coordinates;
 - capture-area geometry transformed into that coordinate system.
 
 Space Ranger stores the final registration in the `metadata_json` attribute of
@@ -143,24 +143,27 @@ The pinned `spatialdata_io.visium_hd()` reader already consumes these matrices.
 With `load_all_images=True`, it loads `spatial/cytassist_image.tiff`, composes
 the CytAssist-to-spot and spot-to-microscope transformations, performs the
 required projective resampling and adds `<sample>_cytassist_image` to
-SpatialData with a transformation into the sample coordinate system. The Space
-Ranger ingestion path must enable this option. The downstream plotting code
-then consumes only the resulting SpatialData layers and transformations; it
-does not depend on Space Ranger paths or transformation metadata.
+SpatialData with a transformation into the sample coordinate system. Ingestion
+projects the original TIFF corners using the same composed transform and
+stores the polygon as `<sample>_cytassist_footprint` in sample coordinates.
+The report uses that polygon to clip the CytAssist overlay, preserving dark
+pixels within its footprint. Reporting consumes the SpatialData layers and
+transformations. Older Zarrs require regenerated ingestion for the oriented
+outline and footprint clipping.
 
 Because the filtered expression matrix contains only included bins, their
 bounds do not necessarily represent the full capture area. Ingestion therefore
 derives one compact `<sample>_capture_area` polygon from the complete 16 µm
-`tissue_positions.parquet` grid and its Space Ranger bin scale. This preserves
-the capture-area extent without loading the raw expression matrix or retaining
-all out-of-tissue bins as SpatialData shapes.
+`tissue_positions.parquet` grid. The corner bin centers define the projective
+map from array indices to sample coordinates. Projecting the four outer
+corners at half-bin offsets preserves the capture area's orientation and
+skew, including when CytAssist registration is unavailable.
 
 The tissue-detection panel shows the H&E image cropped to the capture area,
 with the bins classified as `in_tissue=1` by Space Ranger rendered as a
-semi-transparent, high-contrast fill. Its opacity must keep the underlying
-tissue morphology clearly visible. This panel is for checking whether Space
-Ranger included background or excluded apparent tissue; it is not a continuous
-pixel-wise tissue segmentation.
+cyan fill at 45% opacity so the underlying tissue morphology remains visible.
+This panel helps check where Space Ranger included background or excluded
+apparent tissue.
 
 The tissue classification must come from the unmodified Space Ranger
 `in_tissue` field at the resolution used by the pipeline. It is shown before
